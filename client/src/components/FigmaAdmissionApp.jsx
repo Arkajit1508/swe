@@ -419,48 +419,76 @@ export default function FigmaAdmissionApp() {
   // ==========================================
   if (view === 'portal-auth') {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f5f4f0' }}>
-        <header style={{ backgroundColor: '#0a1628' }}>
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f4f6f9', backgroundImage: 'radial-gradient(at 50% 0%, #ffffff 0%, #f1f4f8 100%)' }}>
+        {/* Top Header */}
+        <header style={{ backgroundColor: '#0a1628', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
             <button onClick={() => setView('home')} className="flex items-center gap-3" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-              <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: '#c9a84c' }}>
-                <span className="font-display text-white font-bold text-sm">I</span>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: '#c9a84c' }}>
+                <span className="font-display text-white font-bold text-base">I</span>
               </div>
-              <span className="font-display text-white text-lg tracking-wide">IEM Admission Portal</span>
+              <div className="text-left">
+                <span className="font-display text-white text-base tracking-wide block leading-tight">IEM Admissions Portal</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold block" style={{ color: '#c9a84c' }}>Academic Year 2026–27</span>
+              </div>
             </button>
-            <button onClick={() => setView('home')} className="text-sm font-semibold" style={{ color: '#c9a84c', background: 'none', border: 'none', cursor: 'pointer' }}>
-              ← Back to Site
+            <button
+              onClick={() => setView('home')}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md text-white/80 hover:text-white transition-colors"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer' }}
+            >
+              <span>← Back to Website</span>
             </button>
           </div>
         </header>
 
-        <main className="max-w-lg mx-auto px-6 py-12 flex-1 w-full">
-          <div className="bg-white border rounded-xl p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-            
-            {/* Top Navigation Switch: Sign In vs Register with Styled Icons */}
-            <div className="flex rounded-lg p-1 mb-6 border" style={{ backgroundColor: '#f1f3f7', borderColor: '#e2e6ed' }}>
+        {/* Auth Modal / Card Container */}
+        <main className="flex-1 flex items-center justify-center px-4 py-12 sm:py-16 w-full">
+          <div
+            className="w-full bg-white rounded-2xl p-6 sm:p-10 transition-all duration-300"
+            style={{
+              maxWidth: authMode === 'login' ? '480px' : '560px',
+              border: '1px solid rgba(10, 22, 40, 0.08)',
+              boxShadow: '0 20px 45px -15px rgba(10, 22, 40, 0.12), 0 0 0 1px rgba(10, 22, 40, 0.04)'
+            }}
+          >
+            {/* Top Navigation Switch: Sign In vs Register */}
+            <div className="flex rounded-xl p-1 mb-8" style={{ backgroundColor: '#f1f4f9', border: '1px solid #e2e8f0' }}>
               <button
                 type="button"
                 onClick={() => setAuthMode('login')}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${
-                  authMode === 'login' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                className={`flex-1 py-2.5 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ${
+                  authMode === 'login'
+                    ? 'bg-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
                 }`}
-                style={{ border: 'none', cursor: 'pointer' }}
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: authMode === 'login' ? '#0a1628' : '#64748b'
+                }}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: authMode === 'login' ? '#c9a84c' : 'currentColor' }}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: authMode === 'login' ? '#c9a84c' : 'currentColor' }}>
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                   <polyline points="10 17 15 12 10 7" />
                   <line x1="15" y1="12" x2="3" y2="12" />
                 </svg>
                 <span>Portal Sign In</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => setAuthMode('register')}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${
-                  authMode === 'register' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                className={`flex-1 py-2.5 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ${
+                  authMode === 'register'
+                    ? 'bg-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
                 }`}
-                style={{ border: 'none', cursor: 'pointer' }}
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: authMode === 'register' ? '#0a1628' : '#64748b'
+                }}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: authMode === 'register' ? '#c9a84c' : 'currentColor' }}>
                   <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -476,36 +504,52 @@ export default function FigmaAdmissionApp() {
             {authMode === 'login' && (
               <>
                 <div className="text-center mb-6">
-                  <h2 className="font-display text-2xl mb-1" style={{ color: '#0a1628' }}>
-                    Portal Sign In
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 tracking-wide" style={{ backgroundColor: '#fffbf0', color: '#b38e36', border: '1px solid #fde68a' }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }}></span>
+                    <span>Candidate & Faculty Access</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight mb-1.5 font-sans" style={{ color: '#0a1628' }}>
+                    Welcome Back
                   </h2>
-                  <p className="text-xs" style={{ color: '#6b7fa0' }}>
-                    Sign in to manage candidate records or track your application file.
+                  <p className="text-xs sm:text-sm text-slate-500 font-normal leading-relaxed">
+                    Sign in to track your admission application or review portal files.
                   </p>
                 </div>
 
                 {/* Role switch */}
-                <div className="flex rounded-md p-1 mb-6" style={{ backgroundColor: '#f5f4f0' }}>
+                <div className="flex rounded-lg p-1 mb-6" style={{ backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0' }}>
                   <button
                     type="button"
                     onClick={() => fillCredentials('student')}
-                    className={`flex-1 py-2 text-xs font-semibold rounded transition-all ${authRole === 'student' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500'}`}
-                    style={{ border: 'none', cursor: 'pointer' }}
+                    className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all font-sans ${
+                      authRole === 'student' ? 'bg-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    style={{
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: authRole === 'student' ? '#0a1628' : '#64748b'
+                    }}
                   >
-                    Student Portal
+                    Applicant / Student
                   </button>
                   <button
                     type="button"
                     onClick={() => fillCredentials('admin')}
-                    className={`flex-1 py-2 text-xs font-semibold rounded transition-all ${authRole === 'admin' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500'}`}
-                    style={{ border: 'none', cursor: 'pointer' }}
+                    className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all font-sans ${
+                      authRole === 'admin' ? 'bg-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    style={{
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: authRole === 'admin' ? '#0a1628' : '#64748b'
+                    }}
                   >
                     Dean / Admin Portal
                   </button>
                 </div>
 
                 {loginError && (
-                  <div className="p-3 mb-4 rounded text-xs flex items-center gap-2" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                  <div className="p-3 mb-5 rounded-lg text-xs flex items-center gap-2" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
                     <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     <span>{loginError}</span>
                   </div>
@@ -513,69 +557,107 @@ export default function FigmaAdmissionApp() {
 
                 <form onSubmit={handlePortalLogin} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                      Email Address
+                    <label className="block text-xs font-semibold mb-1.5 tracking-wide text-slate-700 font-sans">
+                      Email Address <span style={{ color: '#c9a84c' }}>*</span>
                     </label>
-                    <input
-                      type="email"
-                      required
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      placeholder={authRole === 'admin' ? 'admin@iem.edu' : 'student@example.com'}
-                      className="figma-input"
-                    />
+                    <div className="relative flex items-center">
+                      <div
+                        className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none text-slate-400"
+                        style={{ width: '2.5rem', height: '100%', zIndex: 2 }}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      </div>
+                      <input
+                        type="email"
+                        required
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                        placeholder={authRole === 'admin' ? 'admin@iem.edu' : 'student@example.com'}
+                        className="figma-input"
+                        style={{ paddingLeft: '2.5rem' }}
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="figma-input"
-                    />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold tracking-wide text-slate-700 font-sans">
+                        Password <span style={{ color: '#c9a84c' }}>*</span>
+                      </label>
+                      <span className="text-[11px] font-medium text-slate-400 hover:text-slate-600 cursor-pointer font-sans">
+                        Forgot Password?
+                      </span>
+                    </div>
+                    <div className="relative flex items-center">
+                      <div
+                        className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none text-slate-400"
+                        style={{ width: '2.5rem', height: '100%', zIndex: 2 }}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      </div>
+                      <input
+                        type="password"
+                        required
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="figma-input"
+                        style={{ paddingLeft: '2.5rem' }}
+                      />
+                    </div>
                   </div>
 
-                  <button type="submit" disabled={authLoading} className="w-full btn-navy mt-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full mt-5 py-3 text-sm font-semibold rounded-lg flex items-center justify-center gap-2 text-white shadow-sm transition-all cursor-pointer font-sans"
+                    style={{
+                      background: 'linear-gradient(135deg, #0a1628 0%, #1a2f55 100%)',
+                      border: 'none'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
                     <span>{authLoading ? 'Signing In...' : `Sign In to ${authRole === 'admin' ? 'Dean Portal' : 'Student Portal'} →`}</span>
                   </button>
                 </form>
 
-                <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-                  <p className="text-xs text-muted mb-2">Demo Quick Logins:</p>
+                {/* Demo Quick Logins */}
+                <div className="mt-6 pt-5 border-t text-center" style={{ borderColor: '#f1f5f9' }}>
+                  <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-2.5 font-sans">
+                    1-Click Demo Logins:
+                  </p>
                   <div className="flex justify-center gap-2">
                     <button
                       type="button"
                       onClick={() => fillCredentials('student')}
-                      className="text-xs px-2.5 py-1 rounded border hover:bg-slate-50 transition-colors"
-                      style={{ borderColor: '#d4d8df', color: '#1b3058' }}
+                      className="text-xs px-3 py-1.5 rounded-md border font-medium flex items-center gap-1.5 hover:bg-slate-50 transition-colors cursor-pointer font-sans"
+                      style={{ borderColor: '#cbd5e1', color: '#1b3058', backgroundColor: '#ffffff' }}
                     >
-                      Student (Rohan)
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <span>Student (Rohan)</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => fillCredentials('admin')}
-                      className="text-xs px-2.5 py-1 rounded border hover:bg-slate-50 transition-colors"
-                      style={{ borderColor: '#d4d8df', color: '#1b3058' }}
+                      className="text-xs px-3 py-1.5 rounded-md border font-medium flex items-center gap-1.5 hover:bg-slate-50 transition-colors cursor-pointer font-sans"
+                      style={{ borderColor: '#cbd5e1', color: '#1b3058', backgroundColor: '#ffffff' }}
                     >
-                      Admin Dean
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      <span>Admin Dean</span>
                     </button>
                   </div>
                 </div>
 
-                <div className="text-center mt-5 pt-3 border-t text-xs" style={{ borderColor: 'rgba(0,0,0,0.06)', color: '#6b7fa0' }}>
-                  Don't have an admission account yet?{' '}
+                <div className="text-center mt-6 pt-4 border-t text-xs text-slate-500 font-sans" style={{ borderColor: '#f1f5f9' }}>
+                  New applicant to IEM?{' '}
                   <button
                     type="button"
                     onClick={() => setAuthMode('register')}
-                    className="font-bold underline"
+                    className="font-bold hover:underline font-sans"
                     style={{ color: '#c9a84c', background: 'none', border: 'none', cursor: 'pointer' }}
                   >
-                    Register New Account
+                    Register New Account →
                   </button>
                 </div>
               </>
@@ -585,112 +667,184 @@ export default function FigmaAdmissionApp() {
             {authMode === 'register' && (
               <>
                 <div className="text-center mb-6">
-                  <h2 className="font-display text-2xl mb-1" style={{ color: '#0a1628' }}>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 tracking-wide" style={{ backgroundColor: '#fffbf0', color: '#b38e36', border: '1px solid #fde68a' }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }}></span>
+                    <span>Step 1: Student Account</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight mb-1.5 font-sans" style={{ color: '#0a1628' }}>
                     New Candidate Registration
                   </h2>
-                  <p className="text-xs" style={{ color: '#6b7fa0' }}>
-                    Create an applicant account with your email and password to access the student portal.
+                  <p className="text-xs sm:text-sm text-slate-500 font-normal leading-relaxed">
+                    Create an applicant profile to submit & track your 2026 application.
                   </p>
                 </div>
 
                 {regError && (
-                  <div className="p-3 mb-4 rounded text-xs flex items-center gap-2" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                  <div className="p-3 mb-5 rounded-lg text-xs flex items-center gap-2" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
                     <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     <span>{regError}</span>
                   </div>
                 )}
 
                 <form onSubmit={handlePortalRegister} className="space-y-4">
+                  {/* Full Name */}
                   <div>
-                    <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                    <label className="block text-xs font-semibold mb-1.5 tracking-wide text-slate-700 font-sans">
                       Full Legal Name <span style={{ color: '#c9a84c' }}>*</span>
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={regForm.name}
-                      onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                      placeholder="e.g. Sourav Roy"
-                      className="figma-input"
-                    />
+                    <div className="relative flex items-center">
+                      <div
+                        className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none text-slate-400"
+                        style={{ width: '2.5rem', height: '100%', zIndex: 2 }}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={regForm.name}
+                        onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
+                        placeholder="e.g. Sourav Roy"
+                        className="figma-input"
+                        style={{ paddingLeft: '2.5rem' }}
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Email & Phone in 2-columns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                      <label className="block text-xs font-semibold mb-1.5 tracking-wide text-slate-700 font-sans">
                         Email Address <span style={{ color: '#c9a84c' }}>*</span>
                       </label>
-                      <input
-                        type="email"
-                        required
-                        value={regForm.email}
-                        onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                        placeholder="sourav@example.com"
-                        className="figma-input"
-                      />
+                      <div className="relative flex items-center">
+                        <div
+                          className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none text-slate-400"
+                          style={{ width: '2.5rem', height: '100%', zIndex: 2 }}
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        </div>
+                        <input
+                          type="email"
+                          required
+                          value={regForm.email}
+                          onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                          placeholder="sourav@example.com"
+                          className="figma-input"
+                          style={{ paddingLeft: '2.5rem' }}
+                        />
+                      </div>
                     </div>
+
                     <div>
-                      <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                      <label className="block text-xs font-semibold mb-1.5 tracking-wide text-slate-700 font-sans">
                         Mobile Phone <span style={{ color: '#c9a84c' }}>*</span>
                       </label>
-                      <input
-                        type="tel"
-                        required
-                        value={regForm.phone}
-                        onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-                        placeholder="10-digit mobile"
-                        className="figma-input"
-                      />
+                      <div className="relative flex items-center">
+                        <div
+                          className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none text-slate-400"
+                          style={{ width: '2.5rem', height: '100%', zIndex: 2 }}
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                        </div>
+                        <input
+                          type="tel"
+                          required
+                          value={regForm.phone}
+                          onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                          placeholder="10-digit mobile"
+                          className="figma-input"
+                          style={{ paddingLeft: '2.5rem' }}
+                        />
+                      </div>
                     </div>
                   </div>
 
+                  {/* Date of Birth */}
                   <div>
-                    <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                    <label className="block text-xs font-semibold mb-1.5 tracking-wide text-slate-700 font-sans">
                       Date of Birth
                     </label>
-                    <input
-                      type="date"
-                      value={regForm.dateOfBirth}
-                      onChange={(e) => setRegForm({ ...regForm, dateOfBirth: e.target.value })}
-                      className="figma-input"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                        Password <span style={{ color: '#c9a84c' }}>*</span>
-                      </label>
+                    <div className="relative flex items-center">
+                      <div
+                        className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none text-slate-400"
+                        style={{ width: '2.5rem', height: '100%', zIndex: 2 }}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      </div>
                       <input
-                        type="password"
-                        required
-                        value={regForm.password}
-                        onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
-                        placeholder="Min 6 characters"
+                        type="date"
+                        value={regForm.dateOfBirth}
+                        onChange={(e) => setRegForm({ ...regForm, dateOfBirth: e.target.value })}
                         className="figma-input"
+                        style={{ paddingLeft: '2.5rem' }}
                       />
                     </div>
+                  </div>
+
+                  {/* Passwords in 2-columns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                      <label className="block text-xs font-semibold mb-1.5 tracking-wide text-slate-700 font-sans">
+                        Create Password <span style={{ color: '#c9a84c' }}>*</span>
+                      </label>
+                      <div className="relative flex items-center">
+                        <div
+                          className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none text-slate-400"
+                          style={{ width: '2.5rem', height: '100%', zIndex: 2 }}
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <input
+                          type="password"
+                          required
+                          value={regForm.password}
+                          onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                          placeholder="Min 6 chars"
+                          className="figma-input"
+                          style={{ paddingLeft: '2.5rem' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 tracking-wide text-slate-700 font-sans">
                         Confirm Password <span style={{ color: '#c9a84c' }}>*</span>
                       </label>
-                      <input
-                        type="password"
-                        required
-                        value={regForm.confirmPassword}
-                        onChange={(e) => setRegForm({ ...regForm, confirmPassword: e.target.value })}
-                        placeholder="Confirm password"
-                        className="figma-input"
-                      />
+                      <div className="relative flex items-center">
+                        <div
+                          className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none text-slate-400"
+                          style={{ width: '2.5rem', height: '100%', zIndex: 2 }}
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        </div>
+                        <input
+                          type="password"
+                          required
+                          value={regForm.confirmPassword}
+                          onChange={(e) => setRegForm({ ...regForm, confirmPassword: e.target.value })}
+                          placeholder="Re-enter password"
+                          className="figma-input"
+                          style={{ paddingLeft: '2.5rem' }}
+                        />
+                      </div>
                     </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="w-full btn-gold mt-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
+                    className="w-full mt-6 py-3 text-sm font-semibold rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer font-sans"
+                    style={{
+                      background: 'linear-gradient(135deg, #c9a84c 0%, #b38e36 100%)',
+                      color: '#0a1628',
+                      border: 'none',
+                      boxShadow: '0 4px 14px rgba(201, 168, 76, 0.3)'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                       <circle cx="8.5" cy="7" r="4" />
                       <line x1="20" y1="8" x2="20" y2="14" />
@@ -700,15 +854,15 @@ export default function FigmaAdmissionApp() {
                   </button>
                 </form>
 
-                <div className="text-center mt-5 pt-3 border-t text-xs" style={{ borderColor: 'rgba(0,0,0,0.06)', color: '#6b7fa0' }}>
-                  Already have an account?{' '}
+                <div className="text-center mt-6 pt-4 border-t text-xs text-slate-500 font-sans" style={{ borderColor: '#f1f5f9' }}>
+                  Already registered with IEM?{' '}
                   <button
                     type="button"
                     onClick={() => setAuthMode('login')}
-                    className="font-bold underline"
+                    className="font-bold hover:underline font-sans"
                     style={{ color: '#0a1628', background: 'none', border: 'none', cursor: 'pointer' }}
                   >
-                    Sign In here
+                    Sign In here →
                   </button>
                 </div>
               </>
@@ -1515,62 +1669,81 @@ export default function FigmaAdmissionApp() {
         <div
           className="absolute right-0 top-0 bottom-0 w-1/2 hidden lg:block bg-cover bg-center opacity-25"
           style={{
-            backgroundImage: `url(https://images.unsplash.com/photo-1562774053-701939374585?w=800&h=600&fit=crop&auto=format)`
+            backgroundImage: `url(https://images.unsplash.com/photo-1562774053-701939374585?w=800&h=600&fit=crop&auto=format)`,
+            maskImage: 'linear-gradient(to left, rgba(0,0,0,0.85) 60%, rgba(0,0,0,0) 100%)',
+            WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.85) 60%, rgba(0,0,0,0) 100%)'
           }}
         />
 
         <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase mb-4" style={{ color: '#c9a84c' }}>
-            Admissions Open — 2026–27
-          </p>
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold tracking-[0.2em] uppercase mb-4" style={{ color: '#c9a84c' }}>
+              Admissions Open — 2026–27
+            </p>
 
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white leading-tight mb-6 max-w-2xl" style={{ color: '#ffffff', lineHeight: 1.15 }}>
-            Shape Your Future <br />
-            <span style={{ color: '#ffffff' }}>at IEM</span>
-          </h1>
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white leading-tight mb-6" style={{ color: '#ffffff', lineHeight: 1.15 }}>
+              Shape Your Future <br />
+              <span style={{ color: '#ffffff' }}>at IEM</span>
+            </h1>
 
-          <p className="text-white/70 text-lg max-w-xl leading-relaxed mb-10 font-normal">
-            NAAC 'A+' accredited premier institution offering undergraduate, postgraduate, and doctoral programs in engineering, technology, and management in Kolkata.
-          </p>
+            <p className="text-white/70 text-lg leading-relaxed mb-10 font-normal">
+              NAAC 'A+' accredited premier institution offering undergraduate, postgraduate, and doctoral programs in engineering, technology, and management in Kolkata.
+            </p>
 
-          <div className="flex flex-wrap gap-3 sm:gap-4 items-center">
-            <button
-              onClick={() => setView('program')}
-              className="btn-gold"
-            >
-              Apply Now — 2026
-            </button>
+            <div className="flex flex-wrap gap-3 items-center mb-8">
+              <button
+                onClick={() => setView('program')}
+                className="btn-gold"
+                style={{ padding: '0.65rem 1.25rem', fontSize: '0.875rem' }}
+              >
+                Apply Now — 2026
+              </button>
 
-            {/* Registration Action Button with Icon */}
-            <button
-              onClick={() => { setAuthMode('register'); setView('portal-auth'); }}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded transition-all hover:border-amber-400"
-              style={{ backgroundColor: '#1b3058', color: '#ffffff', border: '1px solid #c9a84c88', cursor: 'pointer' }}
-            >
-              <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="8.5" cy="7" r="4" />
-                <line x1="20" y1="8" x2="20" y2="14" />
-                <line x1="23" y1="11" x2="17" y2="11" />
-              </svg>
-              <span>New Registration</span>
-            </button>
+              <button
+                onClick={() => { setAuthMode('register'); setView('portal-auth'); }}
+                className="inline-flex items-center justify-center gap-2 rounded-md transition-all whitespace-nowrap shadow-sm cursor-pointer"
+                style={{
+                  backgroundColor: '#1b3058',
+                  color: '#ffffff',
+                  border: '1.5px solid #c9a84c',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  padding: '0.65rem 1.25rem',
+                  borderRadius: '0.375rem',
+                  lineHeight: '1.25rem',
+                  textDecoration: 'none'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#233d6e';
+                  e.currentTarget.style.borderColor = '#e5c158';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#1b3058';
+                  e.currentTarget.style.borderColor = '#c9a84c';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <svg className="w-4 h-4 text-amber-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1rem', height: '1rem', color: '#e5c158' }}>
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="8.5" cy="7" r="4" />
+                  <line x1="20" y1="8" x2="20" y2="14" />
+                  <line x1="23" y1="11" x2="17" y2="11" />
+                </svg>
+                <span>New Registration</span>
+              </button>
 
-            <button
-              onClick={() => { setView('status'); setSearchAppId('IEM-2026-1001'); }}
-              className="btn-outline-white flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <span>Track My Application</span>
-            </button>
-
-            <button
-              onClick={() => { setAuthMode('login'); setAuthRole('admin'); setView('portal-auth'); }}
-              className="btn-outline-gold text-xs"
-            >
-              Dean / Staff Access
-            </button>
+              <button
+                onClick={() => { setView('status'); setSearchAppId('IEM-2026-1001'); }}
+                className="btn-outline-white flex items-center gap-2 whitespace-nowrap"
+                style={{ padding: '0.65rem 1.25rem !important', fontSize: '0.875rem' }}
+              >
+                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '1rem', height: '1rem' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span>Track My Application</span>
+              </button>
+            </div>
           </div>
+
 
           {/* 4 Key Stat Badges */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-16 pt-12 border-t border-white/10">
