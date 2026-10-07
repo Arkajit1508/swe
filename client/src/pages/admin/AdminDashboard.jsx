@@ -1,21 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
 
 const AdminDashboard = () => {
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // If a logged-in student accidentally visits /admin/dashboard, redirect them to student portal
+    if (user && user.role !== 'admin') {
+      navigate('/student/dashboard', { replace: true });
+      return;
+    }
+
     api.get('/admin/dashboard')
       .then((res) => {
         if (res.success) setData(res.data);
       })
-      .catch((err) => setError('Failed to load admin analytics'))
+      .catch((err) => {
+        setError(err.message || 'Failed to load admin analytics');
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [user, navigate]);
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '3rem' }}>Aggregating admin analytics from MongoDB...</div>;

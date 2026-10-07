@@ -16,7 +16,8 @@ export const AuthProvider = ({ children }) => {
 
       if (savedToken && savedUser) {
         try {
-          setUser(JSON.parse(savedUser));
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
           setToken(savedToken);
           // Refresh user data from server
           const data = await api.get('/auth/me');
@@ -47,6 +48,18 @@ export const AuthProvider = ({ children }) => {
     throw new Error(data.message || 'Login failed');
   };
 
+  const adminLogin = async (email, password) => {
+    const data = await api.post('/auth/admin-login', { email, password });
+    if (data.success) {
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem('iem_token', data.token);
+      localStorage.setItem('iem_user', JSON.stringify(data.user));
+      return data.user;
+    }
+    throw new Error(data.message || 'Admin login failed');
+  };
+
   const register = async (formData) => {
     const data = await api.post('/auth/register', formData);
     if (data.success) {
@@ -71,6 +84,7 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     login,
+    adminLogin,
     register,
     logout,
     isAuthenticated: !!token && !!user,

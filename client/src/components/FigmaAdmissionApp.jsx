@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import IEMLogo from './IEMLogo';
 import '../styles/figma-layout.css';
 
@@ -19,6 +20,8 @@ const STEP_KEYS = { program: 0, personal: 1, academic: 2, documents: 3, review: 
 
 export default function FigmaAdmissionApp() {
   const navigate = useNavigate();
+  const { login, adminLogin, register: authRegister, logout, user: authUser, isAuthenticated, isAdmin } = useAuth();
+
   const [view, setView] = useState('home'); // 'home' | 'program' | 'personal' | 'academic' | 'documents' | 'review' | 'status' | 'portal-auth'
   const [applicationId] = useState(() => `IEM-2026-${Math.floor(10000 + Math.random() * 90000)}`);
   const [programs, setPrograms] = useState(defaultPrograms);
@@ -117,33 +120,22 @@ export default function FigmaAdmissionApp() {
   // Quick Application Submission to Backend
   const handleFinalSubmit = async () => {
     try {
-      let token = localStorage.getItem('iem_token');
       const fullName = `${form.firstName} ${form.lastName}`.trim() || 'Prospective Applicant';
       const studentEmail = form.email || `${form.firstName.toLowerCase() || 'applicant'}@example.com`;
 
-      // If user provided a password and isn't logged in, register account first
-      if (!token && form.password) {
+      // If user provided a password and isn't logged in, register account first via AuthContext
+      if (!isAuthenticated && form.password) {
         try {
-          const regRes = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: fullName,
-              email: studentEmail,
-              phone: form.phone || '9876543210',
-              password: form.password,
-              confirmPassword: form.confirmPassword || form.password,
-              dateOfBirth: form.dob
-            })
+          await authRegister({
+            name: fullName,
+            email: studentEmail,
+            phone: form.phone || '9876543210',
+            password: form.password,
+            confirmPassword: form.confirmPassword || form.password,
+            dateOfBirth: form.dob
           });
-          const regData = await regRes.json();
-          if (regData.success && regData.token) {
-            token = regData.token;
-            localStorage.setItem('iem_token', regData.token);
-            localStorage.setItem('iem_user', JSON.stringify(regData.user));
-          }
         } catch {
-          // continue with draft submission
+          // continue with submission
         }
       }
 
@@ -181,7 +173,7 @@ export default function FigmaAdmissionApp() {
         }
       };
 
-      // Call API
+      const token = localStorage.getItem('iem_token');
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -213,7 +205,6 @@ export default function FigmaAdmissionApp() {
       if (data.success && data.application) {
         setStatusResult(data.application);
       } else {
-        // Fallback status for demo IDs
         setStatusResult({
           applicationNumber: id,
           program: selectedProgramObj?.name || 'B.Tech Computer Science & Engineering · 2026-27',
@@ -251,26 +242,15 @@ export default function FigmaAdmissionApp() {
     setLoginError('');
     setAuthLoading(true);
     try {
-      const endpoint = authRole === 'admin' ? '/api/auth/admin-login' : '/api/auth/login';
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword })
-      });
-      const data = await res.json();
-      if (data.success) {
-        localStorage.setItem('iem_token', data.token);
-        localStorage.setItem('iem_user', JSON.stringify(data.user));
-        if (data.user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/student/dashboard');
-        }
+      if (authRole === 'admin') {
+        await adminLogin(loginEmail, loginPassword);
+        navigate('/admin/dashboard');
       } else {
-        setLoginError(data.message || 'Invalid credentials');
+        await login(loginEmail, loginPassword);
+        navigate('/student/dashboard');
       }
-    } catch {
-      setLoginError('Could not connect to authentication service.');
+    } catch (err) {
+      setLoginError(err.message || 'Invalid email or password');
     } finally {
       setAuthLoading(false);
     }
@@ -291,28 +271,18 @@ export default function FigmaAdmissionApp() {
 
     setAuthLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: regForm.name,
-          email: regForm.email,
-          phone: regForm.phone,
-          dateOfBirth: regForm.dateOfBirth,
-          password: regForm.password,
-          confirmPassword: regForm.confirmPassword
-        })
+      await authRegister({
+        name: regForm.name,
+        email: regForm.email,
+        phone: regForm.phone,
+        dateOfBirth: regForm.dateOfBirth,
+        password: regForm.password,
+        confirmPassword: regForm.confirmPassword
       });
-      const data = await res.json();
-      if (data.success) {
-        localStorage.setItem('iem_token', data.token);
-        localStorage.setItem('iem_user', JSON.stringify(data.user));
-        navigate('/student/dashboard');
-      } else {
-        setRegError(data.message || 'Registration failed');
-      }
-    } catch {
-      setRegError('Server error during registration. Please try again.');
+      // Immediately navigate to Student Dashboard
+      navigate('/student/dashboard');
+    } catch (err) {
+      setRegError(err.message || 'Registration failed');
     } finally {
       setAuthLoading(false);
     }
@@ -363,9 +333,13 @@ export default function FigmaAdmissionApp() {
             <button
               onClick={() => handleSearchStatus()}
               disabled={statusLoading}
-              className="px-6 py-2.5 text-sm font-semibold rounded transition-all btn-navy"
+              className="px-6 py-2.5 text-sm font-semibold rounded transition-all btn-navy flex items-center gap-2"
             >
-              {statusLoading ? 'Searching...' : 'Check Status'}
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <span>{statusLoading ? 'Searching...' : 'Check Status'}</span>
             </button>
           </div>
 
@@ -449,7 +423,9 @@ export default function FigmaAdmissionApp() {
         <header style={{ backgroundColor: '#0a1628' }}>
           <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
             <button onClick={() => setView('home')} className="flex items-center gap-3" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-              <IEMLogo size="sm" />
+              <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: '#c9a84c' }}>
+                <span className="font-display text-white font-bold text-sm">I</span>
+              </div>
               <span className="font-display text-white text-lg tracking-wide">IEM Admission Portal</span>
             </button>
             <button onClick={() => setView('home')} className="text-sm font-semibold" style={{ color: '#c9a84c', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -461,7 +437,7 @@ export default function FigmaAdmissionApp() {
         <main className="max-w-lg mx-auto px-6 py-12 flex-1 w-full">
           <div className="bg-white border rounded-xl p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
             
-            {/* Top Navigation Switch: Sign In vs Register */}
+            {/* Top Navigation Switch: Sign In vs Register with Styled Icons */}
             <div className="flex rounded-lg p-1 mb-6 border" style={{ backgroundColor: '#f1f3f7', borderColor: '#e2e6ed' }}>
               <button
                 type="button"
@@ -471,7 +447,7 @@ export default function FigmaAdmissionApp() {
                 }`}
                 style={{ border: 'none', cursor: 'pointer' }}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: authMode === 'login' ? '#c9a84c' : 'currentColor' }}>
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                   <polyline points="10 17 15 12 10 7" />
                   <line x1="15" y1="12" x2="3" y2="12" />
@@ -486,7 +462,7 @@ export default function FigmaAdmissionApp() {
                 }`}
                 style={{ border: 'none', cursor: 'pointer' }}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: authMode === 'register' ? '#c9a84c' : 'currentColor' }}>
                   <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                   <circle cx="8.5" cy="7" r="4" />
                   <line x1="20" y1="8" x2="20" y2="14" />
@@ -529,8 +505,9 @@ export default function FigmaAdmissionApp() {
                 </div>
 
                 {loginError && (
-                  <div className="p-3 mb-4 rounded text-xs" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
-                    {loginError}
+                  <div className="p-3 mb-4 rounded text-xs flex items-center gap-2" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span>{loginError}</span>
                   </div>
                 )}
 
@@ -563,8 +540,8 @@ export default function FigmaAdmissionApp() {
                     />
                   </div>
 
-                  <button type="submit" disabled={authLoading} className="w-full btn-navy mt-4 py-2.5 text-sm font-semibold">
-                    {authLoading ? 'Signing In...' : `Sign In to ${authRole === 'admin' ? 'Dean Portal' : 'Student Portal'} →`}
+                  <button type="submit" disabled={authLoading} className="w-full btn-navy mt-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2">
+                    <span>{authLoading ? 'Signing In...' : `Sign In to ${authRole === 'admin' ? 'Dean Portal' : 'Student Portal'} →`}</span>
                   </button>
                 </form>
 
@@ -574,7 +551,7 @@ export default function FigmaAdmissionApp() {
                     <button
                       type="button"
                       onClick={() => fillCredentials('student')}
-                      className="text-xs px-2.5 py-1 rounded border"
+                      className="text-xs px-2.5 py-1 rounded border hover:bg-slate-50 transition-colors"
                       style={{ borderColor: '#d4d8df', color: '#1b3058' }}
                     >
                       Student (Rohan)
@@ -582,7 +559,7 @@ export default function FigmaAdmissionApp() {
                     <button
                       type="button"
                       onClick={() => fillCredentials('admin')}
-                      className="text-xs px-2.5 py-1 rounded border"
+                      className="text-xs px-2.5 py-1 rounded border hover:bg-slate-50 transition-colors"
                       style={{ borderColor: '#d4d8df', color: '#1b3058' }}
                     >
                       Admin Dean
@@ -612,13 +589,14 @@ export default function FigmaAdmissionApp() {
                     New Candidate Registration
                   </h2>
                   <p className="text-xs" style={{ color: '#6b7fa0' }}>
-                    Create an applicant account with your email and password to start your application.
+                    Create an applicant account with your email and password to access the student portal.
                   </p>
                 </div>
 
                 {regError && (
-                  <div className="p-3 mb-4 rounded text-xs" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
-                    {regError}
+                  <div className="p-3 mb-4 rounded text-xs flex items-center gap-2" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span>{regError}</span>
                   </div>
                 )}
 
@@ -1487,15 +1465,16 @@ export default function FigmaAdmissionApp() {
             </a>
             <button
               onClick={() => { setView('status'); setSearchAppId('IEM-2026-1001'); }}
-              className="btn-outline-gold text-xs hidden sm:inline-flex"
+              className="btn-outline-gold text-xs hidden sm:inline-flex items-center gap-1.5"
             >
-              Track Application
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>Track Application</span>
             </button>
             
             {/* New Registration Button with Icon */}
             <button
               onClick={() => { setAuthMode('register'); setView('portal-auth'); }}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded font-semibold transition-all"
+              className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded font-bold transition-all shadow-sm hover:brightness-105"
               style={{ backgroundColor: '#c9a84c', color: '#0a1628', border: 'none', cursor: 'pointer' }}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1510,7 +1489,7 @@ export default function FigmaAdmissionApp() {
             {/* Portal Sign In Button with Icon */}
             <button
               onClick={() => { setAuthMode('login'); setView('portal-auth'); }}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded text-white/90 hover:text-white border border-white/20 transition-all"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded text-white/90 hover:text-white border border-white/20 transition-all hover:border-white/40"
               style={{ background: 'transparent', cursor: 'pointer' }}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1565,8 +1544,8 @@ export default function FigmaAdmissionApp() {
             {/* Registration Action Button with Icon */}
             <button
               onClick={() => { setAuthMode('register'); setView('portal-auth'); }}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded transition-all"
-              style={{ backgroundColor: '#1b3058', color: '#ffffff', border: '1px solid #c9a84c66', cursor: 'pointer' }}
+              className="flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded transition-all hover:border-amber-400"
+              style={{ backgroundColor: '#1b3058', color: '#ffffff', border: '1px solid #c9a84c88', cursor: 'pointer' }}
             >
               <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -1579,9 +1558,10 @@ export default function FigmaAdmissionApp() {
 
             <button
               onClick={() => { setView('status'); setSearchAppId('IEM-2026-1001'); }}
-              className="btn-outline-white"
+              className="btn-outline-white flex items-center gap-2"
             >
-              Track My Application
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>Track My Application</span>
             </button>
 
             <button
