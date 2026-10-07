@@ -23,13 +23,29 @@ export default function FigmaAdmissionApp() {
   const [applicationId] = useState(() => `IEM-2026-${Math.floor(10000 + Math.random() * 90000)}`);
   const [programs, setPrograms] = useState(defaultPrograms);
   const [selectedFilter, setSelectedFilter] = useState('All');
+  
+  // Auth Modal State: 'login' | 'register'
+  const [authMode, setAuthMode] = useState('login');
   const [authRole, setAuthRole] = useState('student'); // 'student' | 'admin'
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Dedicated Register Form State in Portal Auth
+  const [regForm, setRegForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [regError, setRegError] = useState('');
+
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Application Form State
+  // Application Wizard Form State (with password in Personal Details)
   const [form, setForm] = useState({
     program: 'btech-cs',
     firstName: '',
@@ -38,6 +54,8 @@ export default function FigmaAdmissionApp() {
     gender: '',
     email: '',
     phone: '',
+    password: '',
+    confirmPassword: '',
     category: '',
     address: '',
     city: '',
@@ -99,16 +117,46 @@ export default function FigmaAdmissionApp() {
   // Quick Application Submission to Backend
   const handleFinalSubmit = async () => {
     try {
+      let token = localStorage.getItem('iem_token');
+      const fullName = `${form.firstName} ${form.lastName}`.trim() || 'Prospective Applicant';
+      const studentEmail = form.email || `${form.firstName.toLowerCase() || 'applicant'}@example.com`;
+
+      // If user provided a password and isn't logged in, register account first
+      if (!token && form.password) {
+        try {
+          const regRes = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: fullName,
+              email: studentEmail,
+              phone: form.phone || '9876543210',
+              password: form.password,
+              confirmPassword: form.confirmPassword || form.password,
+              dateOfBirth: form.dob
+            })
+          });
+          const regData = await regRes.json();
+          if (regData.success && regData.token) {
+            token = regData.token;
+            localStorage.setItem('iem_token', regData.token);
+            localStorage.setItem('iem_user', JSON.stringify(regData.user));
+          }
+        } catch {
+          // continue with draft submission
+        }
+      }
+
       const payload = {
         applicationNumber: applicationId,
         personalInfo: {
-          fullName: `${form.firstName} ${form.lastName}`.trim() || 'Prospective Applicant',
+          fullName,
           dateOfBirth: form.dob || new Date('2005-01-01'),
           gender: form.gender || 'Male',
           category: form.category || 'General'
         },
         contactInfo: {
-          email: form.email || `${form.firstName.toLowerCase() || 'applicant'}@example.com`,
+          email: studentEmail,
           phone: form.phone || '9876543210',
           addressLine: form.address || 'Salt Lake Sector V',
           city: form.city || 'Kolkata',
@@ -134,9 +182,12 @@ export default function FigmaAdmissionApp() {
       };
 
       // Call API
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       await fetch('/api/applications/draft', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       }).catch(() => {});
 
@@ -162,7 +213,7 @@ export default function FigmaAdmissionApp() {
       if (data.success && data.application) {
         setStatusResult(data.application);
       } else {
-        // Provide mock formatted status for demo IDs
+        // Fallback status for demo IDs
         setStatusResult({
           applicationNumber: id,
           program: selectedProgramObj?.name || 'B.Tech Computer Science & Engineering · 2026-27',
@@ -194,11 +245,14 @@ export default function FigmaAdmissionApp() {
     }
   };
 
+  // Handle Sign In (Student or Admin)
   const handlePortalLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
+    setAuthLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
+      const endpoint = authRole === 'admin' ? '/api/auth/admin-login' : '/api/auth/login';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword })
@@ -217,6 +271,50 @@ export default function FigmaAdmissionApp() {
       }
     } catch {
       setLoginError('Could not connect to authentication service.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Handle Registration in Portal
+  const handlePortalRegister = async (e) => {
+    e.preventDefault();
+    setRegError('');
+
+    if (regForm.password !== regForm.confirmPassword) {
+      return setRegError('Passwords do not match');
+    }
+
+    if (regForm.password.length < 6) {
+      return setRegError('Password must be at least 6 characters');
+    }
+
+    setAuthLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: regForm.name,
+          email: regForm.email,
+          phone: regForm.phone,
+          dateOfBirth: regForm.dateOfBirth,
+          password: regForm.password,
+          confirmPassword: regForm.confirmPassword
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('iem_token', data.token);
+        localStorage.setItem('iem_user', JSON.stringify(data.user));
+        navigate('/student/dashboard');
+      } else {
+        setRegError(data.message || 'Registration failed');
+      }
+    } catch {
+      setRegError('Server error during registration. Please try again.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -333,7 +431,7 @@ export default function FigmaAdmissionApp() {
             <button onClick={() => setView('program')} className="btn-gold text-xs">
               Submit Another Application
             </button>
-            <button onClick={() => setView('portal-auth')} className="btn-navy text-xs">
+            <button onClick={() => { setAuthMode('login'); setView('portal-auth'); }} className="btn-navy text-xs">
               Dean & Student Portal Login →
             </button>
           </div>
@@ -343,7 +441,7 @@ export default function FigmaAdmissionApp() {
   }
 
   // ==========================================
-  // RENDER: PORTAL LOGIN / AUTH MODAL
+  // RENDER: PORTAL AUTH (SIGN IN & REGISTRATION)
   // ==========================================
   if (view === 'portal-auth') {
     return (
@@ -351,9 +449,7 @@ export default function FigmaAdmissionApp() {
         <header style={{ backgroundColor: '#0a1628' }}>
           <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
             <button onClick={() => setView('home')} className="flex items-center gap-3" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-              <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: '#c9a84c' }}>
-                <span className="font-display text-white font-bold text-sm">I</span>
-              </div>
+              <IEMLogo size="sm" />
               <span className="font-display text-white text-lg tracking-wide">IEM Admission Portal</span>
             </button>
             <button onClick={() => setView('home')} className="text-sm font-semibold" style={{ color: '#c9a84c', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -362,98 +458,284 @@ export default function FigmaAdmissionApp() {
           </div>
         </header>
 
-        <main className="max-w-md mx-auto px-6 py-16 flex-1 w-full">
-          <div className="bg-white border rounded-lg p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-            <div className="text-center mb-6">
-              <h2 className="font-display text-2xl mb-1" style={{ color: '#0a1628' }}>
-                Portal Sign In
-              </h2>
-              <p className="text-xs" style={{ color: '#6b7fa0' }}>
-                Sign in to manage candidate records or track your application file.
-              </p>
-            </div>
-
-            {/* Role switch */}
-            <div className="flex rounded-md p-1 mb-6" style={{ backgroundColor: '#f5f4f0' }}>
+        <main className="max-w-lg mx-auto px-6 py-12 flex-1 w-full">
+          <div className="bg-white border rounded-xl p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+            
+            {/* Top Navigation Switch: Sign In vs Register */}
+            <div className="flex rounded-lg p-1 mb-6 border" style={{ backgroundColor: '#f1f3f7', borderColor: '#e2e6ed' }}>
               <button
                 type="button"
-                onClick={() => fillCredentials('student')}
-                className={`flex-1 py-2 text-xs font-semibold rounded transition-all ${authRole === 'student' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500'}`}
+                onClick={() => setAuthMode('login')}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${
+                  authMode === 'login' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
                 style={{ border: 'none', cursor: 'pointer' }}
               >
-                Student Portal
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+                <span>Portal Sign In</span>
               </button>
               <button
                 type="button"
-                onClick={() => fillCredentials('admin')}
-                className={`flex-1 py-2 text-xs font-semibold rounded transition-all ${authRole === 'admin' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500'}`}
+                onClick={() => setAuthMode('register')}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${
+                  authMode === 'register' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
                 style={{ border: 'none', cursor: 'pointer' }}
               >
-                Dean / Admin Portal
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="8.5" cy="7" r="4" />
+                  <line x1="20" y1="8" x2="20" y2="14" />
+                  <line x1="23" y1="11" x2="17" y2="11" />
+                </svg>
+                <span>New Registration</span>
               </button>
             </div>
 
-            {loginError && (
-              <div className="p-3 mb-4 rounded text-xs" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
-                {loginError}
-              </div>
+            {/* TAB 1: SIGN IN FORM */}
+            {authMode === 'login' && (
+              <>
+                <div className="text-center mb-6">
+                  <h2 className="font-display text-2xl mb-1" style={{ color: '#0a1628' }}>
+                    Portal Sign In
+                  </h2>
+                  <p className="text-xs" style={{ color: '#6b7fa0' }}>
+                    Sign in to manage candidate records or track your application file.
+                  </p>
+                </div>
+
+                {/* Role switch */}
+                <div className="flex rounded-md p-1 mb-6" style={{ backgroundColor: '#f5f4f0' }}>
+                  <button
+                    type="button"
+                    onClick={() => fillCredentials('student')}
+                    className={`flex-1 py-2 text-xs font-semibold rounded transition-all ${authRole === 'student' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500'}`}
+                    style={{ border: 'none', cursor: 'pointer' }}
+                  >
+                    Student Portal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fillCredentials('admin')}
+                    className={`flex-1 py-2 text-xs font-semibold rounded transition-all ${authRole === 'admin' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500'}`}
+                    style={{ border: 'none', cursor: 'pointer' }}
+                  >
+                    Dean / Admin Portal
+                  </button>
+                </div>
+
+                {loginError && (
+                  <div className="p-3 mb-4 rounded text-xs" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                    {loginError}
+                  </div>
+                )}
+
+                <form onSubmit={handlePortalLogin} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder={authRole === 'admin' ? 'admin@iem.edu' : 'student@example.com'}
+                      className="figma-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="figma-input"
+                    />
+                  </div>
+
+                  <button type="submit" disabled={authLoading} className="w-full btn-navy mt-4 py-2.5 text-sm font-semibold">
+                    {authLoading ? 'Signing In...' : `Sign In to ${authRole === 'admin' ? 'Dean Portal' : 'Student Portal'} →`}
+                  </button>
+                </form>
+
+                <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+                  <p className="text-xs text-muted mb-2">Demo Quick Logins:</p>
+                  <div className="flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fillCredentials('student')}
+                      className="text-xs px-2.5 py-1 rounded border"
+                      style={{ borderColor: '#d4d8df', color: '#1b3058' }}
+                    >
+                      Student (Rohan)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fillCredentials('admin')}
+                      className="text-xs px-2.5 py-1 rounded border"
+                      style={{ borderColor: '#d4d8df', color: '#1b3058' }}
+                    >
+                      Admin Dean
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-center mt-5 pt-3 border-t text-xs" style={{ borderColor: 'rgba(0,0,0,0.06)', color: '#6b7fa0' }}>
+                  Don't have an admission account yet?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('register')}
+                    className="font-bold underline"
+                    style={{ color: '#c9a84c', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Register New Account
+                  </button>
+                </div>
+              </>
             )}
 
-            <form onSubmit={handlePortalLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder={authRole === 'admin' ? 'admin@iem.edu' : 'student@example.com'}
-                  className="figma-input"
-                />
-              </div>
+            {/* TAB 2: REGISTRATION FORM */}
+            {authMode === 'register' && (
+              <>
+                <div className="text-center mb-6">
+                  <h2 className="font-display text-2xl mb-1" style={{ color: '#0a1628' }}>
+                    New Candidate Registration
+                  </h2>
+                  <p className="text-xs" style={{ color: '#6b7fa0' }}>
+                    Create an applicant account with your email and password to start your application.
+                  </p>
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                  Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="figma-input"
-                />
-              </div>
+                {regError && (
+                  <div className="p-3 mb-4 rounded text-xs" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                    {regError}
+                  </div>
+                )}
 
-              <button type="submit" className="w-full btn-navy mt-4 py-2.5 text-sm">
-                Sign In to {authRole === 'admin' ? 'Dean Portal' : 'Student Portal'} →
-              </button>
-            </form>
+                <form onSubmit={handlePortalRegister} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                      Full Legal Name <span style={{ color: '#c9a84c' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={regForm.name}
+                      onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
+                      placeholder="e.g. Sourav Roy"
+                      className="figma-input"
+                    />
+                  </div>
 
-            <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-              <p className="text-xs text-muted mb-2">Demo Quick Logins:</p>
-              <div className="flex justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => fillCredentials('student')}
-                  className="text-xs px-2.5 py-1 rounded border"
-                  style={{ borderColor: '#d4d8df', color: '#1b3058' }}
-                >
-                  Student (Rohan)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillCredentials('admin')}
-                  className="text-xs px-2.5 py-1 rounded border"
-                  style={{ borderColor: '#d4d8df', color: '#1b3058' }}
-                >
-                  Admin Dean
-                </button>
-              </div>
-            </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                        Email Address <span style={{ color: '#c9a84c' }}>*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={regForm.email}
+                        onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                        placeholder="sourav@example.com"
+                        className="figma-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                        Mobile Phone <span style={{ color: '#c9a84c' }}>*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={regForm.phone}
+                        onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                        placeholder="10-digit mobile"
+                        className="figma-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      value={regForm.dateOfBirth}
+                      onChange={(e) => setRegForm({ ...regForm, dateOfBirth: e.target.value })}
+                      className="figma-input"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                        Password <span style={{ color: '#c9a84c' }}>*</span>
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={regForm.password}
+                        onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                        placeholder="Min 6 characters"
+                        className="figma-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                        Confirm Password <span style={{ color: '#c9a84c' }}>*</span>
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={regForm.confirmPassword}
+                        onChange={(e) => setRegForm({ ...regForm, confirmPassword: e.target.value })}
+                        placeholder="Confirm password"
+                        className="figma-input"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full btn-gold mt-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="8.5" cy="7" r="4" />
+                      <line x1="20" y1="8" x2="20" y2="14" />
+                      <line x1="23" y1="11" x2="17" y2="11" />
+                    </svg>
+                    <span>{authLoading ? 'Creating Account...' : 'Complete Registration & Continue →'}</span>
+                  </button>
+                </form>
+
+                <div className="text-center mt-5 pt-3 border-t text-xs" style={{ borderColor: 'rgba(0,0,0,0.06)', color: '#6b7fa0' }}>
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('login')}
+                    className="font-bold underline"
+                    style={{ color: '#0a1628', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Sign In here
+                  </button>
+                </div>
+              </>
+            )}
+
           </div>
         </main>
       </div>
@@ -475,9 +757,18 @@ export default function FigmaAdmissionApp() {
               <IEMLogo size="sm" />
               <span className="font-display text-white text-lg tracking-wide">IEM</span>
             </button>
-            <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: '#c9a84c' }}>Application ID:</span>
-              <span className="text-white text-xs font-mono">{applicationId}</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setAuthMode('login'); setView('portal-auth'); }}
+                className="text-xs px-2.5 py-1 rounded text-white/80 hover:text-white border border-white/20"
+                style={{ background: 'none', cursor: 'pointer' }}
+              >
+                Sign In
+              </button>
+              <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded">
+                <span className="text-xs" style={{ color: '#c9a84c' }}>Application ID:</span>
+                <span className="text-white text-xs font-mono">{applicationId}</span>
+              </div>
             </div>
           </div>
         </header>
@@ -522,31 +813,32 @@ export default function FigmaAdmissionApp() {
           </div>
         </div>
 
-        {/* Step Form Container */}
+        {/* Main Step Content */}
         <main className="max-w-6xl mx-auto px-6 py-10">
           {/* STEP 1: PROGRAM SELECTION */}
           {view === 'program' && (
-            <div className="max-w-4xl">
-              <div className="mb-8">
-                <h1 className="font-display text-3xl mb-2" style={{ color: '#0a1628' }}>
-                  Choose Your Program
-                </h1>
-                <p className="text-sm" style={{ color: '#6b7fa0' }}>
-                  Select the academic discipline you wish to apply for at IEM Kolkata for Session 2026–27.
-                </p>
-              </div>
+            <div className="max-w-3xl">
+              <h2 className="font-display text-2xl mb-2" style={{ color: '#0a1628' }}>
+                Select Your Program
+              </h2>
+              <p className="text-sm mb-6" style={{ color: '#6b7fa0' }}>
+                Choose the academic degree and department you wish to enroll in for 2026–27.
+              </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-3">
                 {programs.map((prog) => {
                   const isSelected = form.program === prog.id;
+
                   return (
                     <button
                       key={prog.id}
                       type="button"
                       onClick={() => updateForm('program', prog.id)}
-                      className="text-left p-5 rounded-lg border-2 transition-all duration-200 bg-white hover:shadow-md"
+                      className={`w-full text-left p-5 border rounded-lg transition-all duration-200 ${
+                        isSelected ? 'ring-2' : 'hover:border-slate-400'
+                      }`}
                       style={{
-                        borderColor: isSelected ? '#c9a84c' : 'transparent',
+                        borderColor: isSelected ? '#c9a84c' : '#d4d8df',
                         backgroundColor: isSelected ? '#fffbf0' : 'white',
                         cursor: 'pointer'
                       }}
@@ -597,13 +889,16 @@ export default function FigmaAdmissionApp() {
             </div>
           )}
 
-          {/* STEP 2: PERSONAL DETAILS */}
+          {/* STEP 2: PERSONAL DETAILS + ACCOUNT PASSWORD */}
           {view === 'personal' && (
             <div className="max-w-3xl">
               <div className="bg-white border rounded-lg p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-                <h2 className="font-display text-2xl mb-6" style={{ color: '#0a1628' }}>
-                  Personal Details
+                <h2 className="font-display text-2xl mb-2" style={{ color: '#0a1628' }}>
+                  Personal Details & Candidate Profile
                 </h2>
+                <p className="text-xs text-muted mb-6">
+                  Fill in your identity details. These will be used for your official admission documents.
+                </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
@@ -706,6 +1001,48 @@ export default function FigmaAdmissionApp() {
                   </div>
                 </div>
 
+                {/* Account Security & Password Creation */}
+                <div className="border-t mt-6 pt-6 bg-slate-50/50 -mx-8 px-8 pb-4" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-base">🔒</span>
+                    <h3 className="text-sm font-bold" style={{ color: '#0a1628' }}>
+                      Account Security & Portal Password
+                    </h3>
+                  </div>
+                  <p className="text-xs text-muted mb-4">
+                    Create a password so you can sign in anytime to track your application, check entrance exam scores, and participate in counselling.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                        Create Password <span style={{ color: '#c9a84c' }}>*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={form.password}
+                        onChange={(e) => updateForm('password', e.target.value)}
+                        placeholder="At least 6 characters"
+                        className="figma-input bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                        Confirm Password <span style={{ color: '#c9a84c' }}>*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={form.confirmPassword}
+                        onChange={(e) => updateForm('confirmPassword', e.target.value)}
+                        placeholder="Re-enter password"
+                        className="figma-input bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address */}
                 <div className="border-t mt-6 pt-6" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                   <h3 className="text-sm font-semibold mb-4" style={{ color: '#0a1628' }}>
                     Correspondence Address
@@ -893,12 +1230,12 @@ export default function FigmaAdmissionApp() {
                   {/* Entrance Exam */}
                   <div>
                     <h3 className="text-xs font-semibold uppercase tracking-widest mb-4 pb-2 border-b" style={{ color: '#6b7fa0', borderColor: 'rgba(0,0,0,0.06)' }}>
-                      Entrance Examination
+                      Entrance Exam Details
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                       <div>
                         <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                          Exam Name
+                          Exam Type
                         </label>
                         <select
                           value={form.entranceExam}
@@ -907,23 +1244,21 @@ export default function FigmaAdmissionApp() {
                         >
                           <option value="">Select exam</option>
                           <option value="IEMJEE 2026">IEMJEE 2026</option>
-                          <option value="JEE Main">JEE Main</option>
-                          <option value="WBJEE">WBJEE</option>
-                          <option value="COMEDK">COMEDK</option>
-                          <option value="CAT/MAT">CAT / MAT</option>
-                          <option value="JECA">JECA (MCA)</option>
-                          <option value="Other">Other</option>
+                          <option value="WBJEE 2026">WBJEE 2026</option>
+                          <option value="JEE Main 2026">JEE Main 2026</option>
+                          <option value="CAT/MAT (Management)">CAT/MAT (Management)</option>
+                          <option value="JECA (MCA)">JECA (MCA)</option>
                         </select>
                       </div>
                       <div>
                         <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                          All India Rank
+                          All India / State Rank
                         </label>
                         <input
                           type="text"
                           value={form.entranceRank}
                           onChange={(e) => updateForm('entranceRank', e.target.value)}
-                          placeholder="12450"
+                          placeholder="e.g. 1420"
                           className="figma-input"
                         />
                       </div>
@@ -935,7 +1270,7 @@ export default function FigmaAdmissionApp() {
                           type="text"
                           value={form.entranceScore}
                           onChange={(e) => updateForm('entranceScore', e.target.value)}
-                          placeholder="95.4"
+                          placeholder="e.g. 96.2%"
                           className="figma-input"
                         />
                       </div>
@@ -958,72 +1293,40 @@ export default function FigmaAdmissionApp() {
             </div>
           )}
 
-          {/* STEP 4: DOCUMENT UPLOADS */}
+          {/* STEP 4: DOCUMENT UPLOAD */}
           {view === 'documents' && (
             <div className="max-w-3xl">
               <div className="bg-white border rounded-lg p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                 <h2 className="font-display text-2xl mb-2" style={{ color: '#0a1628' }}>
-                  Document Upload
+                  Upload Documents
                 </h2>
-                <p className="text-sm mb-6" style={{ color: '#6b7fa0' }}>
-                  Upload clear, legible scans of your certificates and identity documents.
+                <p className="text-xs text-muted mb-6">
+                  Accepted formats: PDF, JPG, PNG (Max 5MB each). You can also upload or replace these later from your student portal.
                 </p>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {[
-                    { key: 'photo', label: 'Passport-size Photograph', hint: 'JPG/PNG, white background, max 200KB', icon: '👤' },
-                    { key: 'signature', label: 'Signature', hint: 'JPG/PNG on white background, max 100KB', icon: '✍️' },
-                    { key: 'marksheet10', label: 'Class X Marksheet', hint: 'PDF/JPG, clear scan, max 1MB', icon: '📄' },
-                    { key: 'marksheet12', label: 'Class XII Marksheet', hint: 'PDF/JPG, clear scan, max 1MB', icon: '📄' },
-                    { key: 'idProof', label: 'ID Proof (Aadhaar / Passport)', hint: 'PDF/JPG, max 2MB', icon: '🪪' }
-                  ].map((doc) => {
-                    const isUploaded = Boolean(form[doc.key]);
-                    return (
-                      <div
-                        key={doc.key}
-                        className="flex items-center gap-4 p-4 rounded-lg border border-dashed transition-all"
-                        style={{
-                          borderColor: isUploaded ? '#c9a84c' : '#d4d8df',
-                          backgroundColor: isUploaded ? '#fffbf0' : '#fafafa'
-                        }}
-                      >
-                        <div className="text-2xl w-10 text-center">{doc.icon}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium" style={{ color: '#0a1628' }}>{doc.label}</p>
-                          <p className="text-xs mt-0.5" style={{ color: '#9aa5b1' }}>{doc.hint}</p>
+                    { label: 'Passport Size Photograph', key: 'photo', hint: 'JPG/PNG with white background' },
+                    { label: 'Applicant Signature', key: 'signature', hint: 'Signed on plain white paper' },
+                    { label: 'Class X Marksheet', key: 'marksheet10', hint: 'Scanned copy / Digilocker PDF' },
+                    { label: 'Class XII Marksheet', key: 'marksheet12', hint: 'Marksheet or Admit Card' },
+                    { label: 'Aadhaar Card / ID Proof', key: 'idProof', hint: 'Government issued photo ID' }
+                  ].map((doc) => (
+                    <div key={doc.key} className="p-4 border border-dashed rounded-lg flex flex-col justify-between" style={{ borderColor: '#c9a84c66', backgroundColor: '#fffdfa' }}>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold" style={{ color: '#0a1628' }}>{doc.label}</span>
+                          <span className="text-[10px] uppercase font-bold text-amber-600">Required</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          {isUploaded && (
-                            <span className="text-xs font-medium" style={{ color: '#c9a84c' }}>
-                              ✓ Uploaded
-                            </span>
-                          )}
-                          <label
-                            className="cursor-pointer px-4 py-1.5 text-xs font-semibold rounded border transition-all hover:opacity-90"
-                            style={{ borderColor: '#0a1628', color: '#0a1628', backgroundColor: 'transparent' }}
-                          >
-                            {isUploaded ? 'Replace' : 'Upload'}
-                            <input
-                              type="file"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files[0];
-                                updateForm(doc.key, file ? file.name : 'uploaded_document.pdf');
-                              }}
-                            />
-                          </label>
-                        </div>
+                        <p className="text-[11px] text-muted mb-3">{doc.hint}</p>
                       </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-6 p-4 rounded" style={{ backgroundColor: '#f0f4f8' }}>
-                  <p className="text-xs" style={{ color: '#6b7fa0' }}>
-                    <strong style={{ color: '#1b3058' }}>
-                      {['photo', 'signature', 'marksheet10', 'marksheet12', 'idProof'].filter(k => form[k]).length} of 5
-                    </strong> documents uploaded. You can proceed with review and submit anytime.
-                  </p>
+                      <input
+                        type="file"
+                        onChange={(e) => updateForm(doc.key, e.target.files[0]?.name || 'uploaded_document.pdf')}
+                        className="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-navy-900 file:text-white hover:file:bg-navy-800 cursor-pointer"
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1041,59 +1344,41 @@ export default function FigmaAdmissionApp() {
             </div>
           )}
 
-          {/* STEP 5: REVIEW & SUBMIT */}
+          {/* STEP 5: REVIEW & FINAL SUBMIT */}
           {view === 'review' && (
-            <div className="max-w-3xl space-y-5">
-              <div className="mb-2">
-                <h1 className="font-display text-3xl mb-1" style={{ color: '#0a1628' }}>
-                  Review Your Application
-                </h1>
-                <p className="text-sm" style={{ color: '#6b7fa0' }}>
-                  Please review all candidate details carefully before submitting your admission file.
+            <div className="max-w-3xl space-y-6">
+              <div>
+                <h2 className="font-display text-2xl mb-1" style={{ color: '#0a1628' }}>
+                  Review & Final Submission
+                </h2>
+                <p className="text-xs text-muted">
+                  Please verify your submitted academic record and applicant credentials before confirming.
                 </p>
               </div>
 
-              {/* Reference ID card */}
+              {/* Program Summary */}
               <div className="bg-white border rounded-lg p-6" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                 <h3 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: '#6b7fa0' }}>
-                  Generated Application Reference
+                  Selected Academic Course
                 </h3>
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-lg font-bold" style={{ color: '#c9a84c' }}>
-                    {applicationId}
-                  </span>
-                  <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: '#0a162812', color: '#0a1628' }}>
-                    Save this ID
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-base" style={{ color: '#0a1628' }}>{selectedProgramObj?.name}</h4>
+                    <p className="text-xs mt-0.5 text-muted">{selectedProgramObj?.department} · {selectedProgramObj?.duration}</p>
+                  </div>
+                  <span className="font-bold text-sm" style={{ color: '#b38e36' }}>{selectedProgramObj?.fee}</span>
                 </div>
-              </div>
-
-              {/* Program Preview */}
-              <div className="bg-white border rounded-lg p-6" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-                <h3 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: '#6b7fa0' }}>
-                  Selected Program
-                </h3>
-                <p className="font-semibold text-sm" style={{ color: '#0a1628' }}>
-                  {selectedProgramObj?.name}
-                </p>
-                <p className="text-xs mt-1" style={{ color: '#9aa5b1' }}>
-                  {selectedProgramObj?.duration} · {selectedProgramObj?.fee}
-                </p>
               </div>
 
               {/* Personal Details Summary */}
               <div className="bg-white border rounded-lg p-6" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                 <h3 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: '#6b7fa0' }}>
-                  Personal Details
+                  Applicant Profile
                 </h3>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex justify-between py-2 border-b text-xs" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
                     <span style={{ color: '#6b7fa0' }}>Full Name</span>
                     <span className="font-medium" style={{ color: '#0a1628' }}>{form.firstName} {form.lastName}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b text-xs" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-                    <span style={{ color: '#6b7fa0' }}>Date of Birth</span>
-                    <span className="font-medium" style={{ color: '#0a1628' }}>{form.dob || '—'}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b text-xs" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
                     <span style={{ color: '#6b7fa0' }}>Gender</span>
@@ -1106,6 +1391,12 @@ export default function FigmaAdmissionApp() {
                   <div className="flex justify-between py-2 border-b text-xs" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
                     <span style={{ color: '#6b7fa0' }}>Mobile</span>
                     <span className="font-medium" style={{ color: '#0a1628' }}>{form.phone || '—'}</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-xs">
+                    <span style={{ color: '#6b7fa0' }}>Portal Security</span>
+                    <span className="font-semibold" style={{ color: '#16a34a' }}>
+                      {form.password ? 'Password Protected (Ready to Sign In)' : 'Standard Application'}
+                    </span>
                   </div>
                   <div className="flex justify-between py-2 text-xs">
                     <span style={{ color: '#6b7fa0' }}>Location</span>
@@ -1187,25 +1478,47 @@ export default function FigmaAdmissionApp() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 sm:gap-6">
-            <a href="#programs" className="text-sm text-white/70 hover:text-white transition-colors" style={{ textDecoration: 'none' }}>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <a href="#programs" className="text-sm text-white/70 hover:text-white transition-colors hidden md:inline" style={{ textDecoration: 'none' }}>
               Programs
             </a>
-            <a href="#timeline" className="text-sm text-white/70 hover:text-white transition-colors" style={{ textDecoration: 'none' }}>
+            <a href="#timeline" className="text-sm text-white/70 hover:text-white transition-colors hidden md:inline" style={{ textDecoration: 'none' }}>
               Key Dates
             </a>
             <button
               onClick={() => { setView('status'); setSearchAppId('IEM-2026-1001'); }}
-              className="btn-outline-gold text-xs"
+              className="btn-outline-gold text-xs hidden sm:inline-flex"
             >
               Track Application
             </button>
+            
+            {/* New Registration Button with Icon */}
             <button
-              onClick={() => setView('portal-auth')}
-              className="text-xs px-3 py-1.5 rounded text-white/80 hover:text-white border border-white/20 transition-all"
+              onClick={() => { setAuthMode('register'); setView('portal-auth'); }}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded font-semibold transition-all"
+              style={{ backgroundColor: '#c9a84c', color: '#0a1628', border: 'none', cursor: 'pointer' }}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="8.5" cy="7" r="4" />
+                <line x1="20" y1="8" x2="20" y2="14" />
+                <line x1="23" y1="11" x2="17" y2="11" />
+              </svg>
+              <span>New Registration</span>
+            </button>
+
+            {/* Portal Sign In Button with Icon */}
+            <button
+              onClick={() => { setAuthMode('login'); setView('portal-auth'); }}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded text-white/90 hover:text-white border border-white/20 transition-all"
               style={{ background: 'transparent', cursor: 'pointer' }}
             >
-              Portal Login
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                <polyline points="10 17 15 12 10 7" />
+                <line x1="15" y1="12" x2="3" y2="12" />
+              </svg>
+              <span>Portal Sign In</span>
             </button>
           </div>
         </div>
@@ -1241,21 +1554,38 @@ export default function FigmaAdmissionApp() {
             NAAC 'A+' accredited premier institution offering undergraduate, postgraduate, and doctoral programs in engineering, technology, and management in Kolkata.
           </p>
 
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-3 sm:gap-4 items-center">
             <button
               onClick={() => setView('program')}
               className="btn-gold"
             >
               Apply Now — 2026
             </button>
+
+            {/* Registration Action Button with Icon */}
+            <button
+              onClick={() => { setAuthMode('register'); setView('portal-auth'); }}
+              className="flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded transition-all"
+              style={{ backgroundColor: '#1b3058', color: '#ffffff', border: '1px solid #c9a84c66', cursor: 'pointer' }}
+            >
+              <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="8.5" cy="7" r="4" />
+                <line x1="20" y1="8" x2="20" y2="14" />
+                <line x1="23" y1="11" x2="17" y2="11" />
+              </svg>
+              <span>New Registration</span>
+            </button>
+
             <button
               onClick={() => { setView('status'); setSearchAppId('IEM-2026-1001'); }}
               className="btn-outline-white"
             >
               Track My Application
             </button>
+
             <button
-              onClick={() => setView('portal-auth')}
+              onClick={() => { setAuthMode('login'); setAuthRole('admin'); setView('portal-auth'); }}
               className="btn-outline-gold text-xs"
             >
               Dean / Staff Access
@@ -1431,7 +1761,7 @@ export default function FigmaAdmissionApp() {
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
           {[
             { step: '01', title: 'Choose Course', desc: 'Select preferred engineering or management program.' },
-            { step: '02', title: 'Personal Details', desc: 'Provide applicant profile and contact coordinates.' },
+            { step: '02', title: 'Personal Details', desc: 'Provide applicant profile and set account password.' },
             { step: '03', title: 'Academic Scores', desc: 'Enter Class 10, 12, and entrance examination ranks.' },
             { step: '04', title: 'Upload Files', desc: 'Attach photograph, signature, and marksheets.' },
             { step: '05', title: 'Review & Track', desc: 'Get your instant Application ID and track status live.' }

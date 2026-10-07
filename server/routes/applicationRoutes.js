@@ -4,10 +4,12 @@ const {
   getMyApplication,
   saveDraft,
   submitApplication,
-  getApplicationById
+  getApplicationById,
+  getApplicationByAppNumber
 } = require('../controllers/applicationController');
 const { protect } = require('../middleware/authMiddleware');
 
+router.get('/track/:appNumber', getApplicationByAppNumber);
 router.get('/me', protect, getMyApplication);
 router.post('/draft', protect, saveDraft);
 router.put('/:id', protect, saveDraft);

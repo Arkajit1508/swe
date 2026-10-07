@@ -277,3 +277,32 @@ exports.updateApplicationStatus = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to update application status' });
   }
 };
+
+// @desc   Track application status publicly by application number
+// @route  GET /api/applications/track/:appNumber
+// @access Public
+exports.getApplicationByAppNumber = async (req, res) => {
+  try {
+    const { appNumber } = req.params;
+    const application = await Application.findOne({ applicationNumber: appNumber.toUpperCase() })
+      .populate('applicant', 'name email phone');
+
+    if (!application) {
+      return res.status(404).json({ success: false, message: 'Application reference not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      application: {
+        applicationNumber: application.applicationNumber,
+        status: application.status,
+        program: `${application.courseSelection?.program || 'B.Tech'} - ${application.courseSelection?.department || 'Computer Science'}`,
+        applicantName: application.personalInfo?.fullName || application.applicant?.name,
+        submittedAt: application.submittedAt || application.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error tracking application:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve application tracking details' });
+  }
+};
