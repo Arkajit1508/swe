@@ -23,6 +23,7 @@ const ApplicantDetail = () => {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [docRemarks, setDocRemarks] = useState({});
+  const [verifyingDocId, setVerifyingDocId] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const fetchApplicant = async () => {
@@ -67,17 +68,30 @@ const ApplicantDetail = () => {
 
   const handleVerifyDocument = async (docId, verificationStatus) => {
     const remark = docRemarks[docId] || '';
+    setVerifyingDocId(docId);
+    setMessage({ type: '', text: '' });
     try {
-      const res = await api.put(`/admin/documents/${docId}/verify`, {
-        verificationStatus,
-        remarks: remark
-      });
-      if (res.success) {
-        setMessage({ type: 'success', text: `Document marked as ${verificationStatus}` });
-        fetchApplicant();
+      let res;
+      try {
+        res = await api.put(`/admin/documents/${docId}/verify`, {
+          verificationStatus,
+          remarks: remark
+        });
+      } catch (err) {
+        // Fallback to /documents/:id/verify
+        res = await api.put(`/documents/${docId}/verify`, {
+          verificationStatus,
+          remarks: remark
+        });
+      }
+      if (res && res.success) {
+        setMessage({ type: 'success', text: `Document marked as ${verificationStatus} successfully!` });
+        await fetchApplicant();
       }
     } catch (err) {
       setMessage({ type: 'danger', text: err.message || 'Verification failed' });
+    } finally {
+      setVerifyingDocId(null);
     }
   };
 
@@ -290,16 +304,18 @@ const ApplicantDetail = () => {
                         <button
                           onClick={() => handleVerifyDocument(doc._id, 'VERIFIED')}
                           className="btn btn-success btn-sm"
+                          disabled={verifyingDocId === doc._id}
                           title="Mark Document Verified"
                         >
-                          ✓ Verify
+                          {verifyingDocId === doc._id ? 'Saving...' : '✓ Verify'}
                         </button>
                         <button
                           onClick={() => handleVerifyDocument(doc._id, 'REJECTED')}
                           className="btn btn-danger btn-sm"
+                          disabled={verifyingDocId === doc._id}
                           title="Mark Document Rejected"
                         >
-                          ✕ Reject
+                          {verifyingDocId === doc._id ? 'Saving...' : '✕ Reject'}
                         </button>
                       </div>
                     </td>
