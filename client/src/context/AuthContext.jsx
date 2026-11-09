@@ -43,6 +43,9 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       localStorage.setItem('iem_token', data.token);
       localStorage.setItem('iem_user', JSON.stringify(data.user));
+      if (data.user?.dateOfBirth) {
+        localStorage.setItem('iem_registered_dob', String(data.user.dateOfBirth).slice(0, 10));
+      }
       return data.user;
     }
     throw new Error(data.message || 'Login failed');
@@ -63,11 +66,18 @@ export const AuthProvider = ({ children }) => {
   const register = async (formData) => {
     const data = await api.post('/auth/register', formData);
     if (data.success) {
+      const userWithDob = {
+        ...data.user,
+        dateOfBirth: data.user?.dateOfBirth || formData.dateOfBirth || ''
+      };
       setToken(data.token);
-      setUser(data.user);
+      setUser(userWithDob);
       localStorage.setItem('iem_token', data.token);
-      localStorage.setItem('iem_user', JSON.stringify(data.user));
-      return data.user;
+      localStorage.setItem('iem_user', JSON.stringify(userWithDob));
+      if (formData.dateOfBirth) {
+        localStorage.setItem('iem_registered_dob', formData.dateOfBirth);
+      }
+      return userWithDob;
     }
     throw new Error(data.message || 'Registration failed');
   };
@@ -77,6 +87,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     localStorage.removeItem('iem_token');
     localStorage.removeItem('iem_user');
+    localStorage.removeItem('iem_registered_dob');
   };
 
   const value = {

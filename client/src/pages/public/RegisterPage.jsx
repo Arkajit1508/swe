@@ -28,6 +28,15 @@ const RegisterPage = () => {
     e.preventDefault();
     setError('');
 
+    if (formData.dateOfBirth) {
+      if (formData.dateOfBirth > '2011-12-31') {
+        return setError('Applicant must be at least 15 years old (born on or before Dec 31, 2011)');
+      }
+      if (formData.dateOfBirth < '1960-01-01') {
+        return setError('Please enter a valid Date of Birth (born on or after Jan 1, 1960)');
+      }
+    }
+
     if (formData.password !== formData.confirmPassword) {
       return setError('Passwords do not match');
     }
@@ -115,9 +124,14 @@ const RegisterPage = () => {
               type="date"
               name="dateOfBirth"
               className="form-control"
+              min="1960-01-01"
+              max="2011-12-31"
               value={formData.dateOfBirth}
               onChange={handleChange}
             />
+            <small style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+              Applicant must be between 15 and 65 years old (born 1960 – 2011)
+            </small>
           </div>
 
           <div className="form-grid-2">

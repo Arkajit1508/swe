@@ -476,3 +476,187 @@ button, input, select, textarea {
     padding: 0 !important;
   }
 }
+
+/* ========================================================
+   Smooth Page, View & Element Transition Animations
+   ======================================================== */
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes pageFadeSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stepFadeSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.page-transition {
+  animation: pageFadeSlide 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+.step-transition {
+  animation: stepFadeSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+.fade-in {
+  animation: fadeIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity;
+}
+
+.scale-fade-in {
+  animation: scaleFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+/* Program Card Hover Elevation */
+.program-card-hover {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease !important;
+}
+.program-card-hover:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 14px 28px -6px rgba(10, 22, 40, 0.12), 0 4px 10px -2px rgba(10, 22, 40, 0.06) !important;
+  border-color: #c9a84c !important;
+}
+
+/* Step Journey Card Hover */
+.step-card-hover {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease !important;
+}
+.step-card-hover:hover {
+  transform: translateY(-3px) !important;
+  border-color: #c9a84c !important;
+  box-shadow: 0 8px 16px -2px rgba(10, 22, 40, 0.08) !important;
+}
+
+/* Filter Tab Button Transitions */
+.tab-filter-btn {
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* ========================================================
+   Modern Scroll Animations & Scroll Reveals
+   ======================================================== */
+
+@keyframes scrollFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scroll-reveal {
+  animation: scrollFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Staggered Delays for Grid Elements */
+.scroll-reveal-delay-1 { animation-delay: 0.05s; }
+.scroll-reveal-delay-2 { animation-delay: 0.10s; }
+.scroll-reveal-delay-3 { animation-delay: 0.15s; }
+.scroll-reveal-delay-4 { animation-delay: 0.20s; }
+.scroll-reveal-delay-5 { animation-delay: 0.25s; }
+
+/* Sticky Navbar on Scroll with Glassmorphism */
+.nav-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  transition: background-color 0.3s ease, backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.nav-sticky.is-scrolled {
+  background-color: rgba(10, 22, 40, 0.92) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3) !important;
+  border-bottom: 1px solid rgba(201, 168, 76, 0.2) !important;
+}
+
+/* Floating Scroll-To-Top Button */
+.scroll-top-btn {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #c9a84c;
+  color: #0a1628;
+  border: none;
+  box-shadow: 0 6px 18px -2px rgba(10, 22, 40, 0.35), 0 2px 6px -1px rgba(201, 168, 76, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: scaleFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scroll-top-btn:hover {
+  background: #e5c158;
+  transform: translateY(-3px) scale(1.06);
+  box-shadow: 0 10px 24px -3px rgba(10, 22, 40, 0.45), 0 4px 10px -1px rgba(201, 168, 76, 0.4);
+}
+
+.scroll-top-btn:active {
+  transform: translateY(0) scale(0.95);
+}
+
+/* Accessibility: Respect Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .page-transition,
+  .step-transition,
+  .fade-in,
+  .scale-fade-in,
+  .scroll-reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

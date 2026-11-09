@@ -39,12 +39,36 @@ const applicationSchema = new mongoose.Schema(
     academicInfo: {
       tenthBoard: { type: String, default: '' },
       tenthSchool: { type: String, default: '' },
-      tenthYear: { type: Number },
-      tenthPercentage: { type: Number },
+      tenthYear: {
+        type: Number,
+        min: [2018, 'Class 10 passing year cannot be earlier than 2018'],
+        max: [2026, 'Class 10 passing year cannot be in the future (max: 2026)'],
+        validate: {
+          validator: function (v) { return v == null || Number.isInteger(v); },
+          message: '{VALUE} must be an integer year'
+        }
+      },
+      tenthPercentage: {
+        type: Number,
+        min: [0, 'Percentage cannot be negative'],
+        max: [100, 'Percentage cannot exceed 100']
+      },
       twelfthBoard: { type: String, default: '' },
       twelfthSchool: { type: String, default: '' },
-      twelfthYear: { type: Number },
-      twelfthPercentage: { type: Number },
+      twelfthYear: {
+        type: Number,
+        min: [2018, 'Class 12 passing year cannot be earlier than 2018'],
+        max: [2026, 'Class 12 passing year cannot be in the future (max: 2026)'],
+        validate: {
+          validator: function (v) { return v == null || Number.isInteger(v); },
+          message: '{VALUE} must be an integer year'
+        }
+      },
+      twelfthPercentage: {
+        type: Number,
+        min: [0, 'Percentage cannot be negative'],
+        max: [100, 'Percentage cannot exceed 100']
+      },
       stream: { type: String, default: '' }
     },
 
@@ -59,7 +83,14 @@ const applicationSchema = new mongoose.Schema(
     examInfo: {
       examName: { type: String, default: 'IEMJEE' },
       rollNumber: { type: String, default: '' },
-      rankOrScore: { type: Number }
+      rankOrScore: {
+        type: Number,
+        min: [1, 'Rank must be a positive integer (min: 1)'],
+        validate: {
+          validator: function (v) { return v == null || Number.isInteger(v); },
+          message: '{VALUE} must be an integer rank or score'
+        }
+      }
     },
 
     // Application Status Flow

@@ -71,6 +71,7 @@ exports.register = async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().slice(0, 10) : '',
         role: user.role
       }
     });
@@ -113,6 +114,7 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().slice(0, 10) : '',
         role: user.role
       }
     });

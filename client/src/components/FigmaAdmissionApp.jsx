@@ -18,6 +18,28 @@ const defaultPrograms = [
 const STEPS = ['Program', 'Personal Details', 'Academic', 'Documents', 'Review'];
 const STEP_KEYS = { program: 0, personal: 1, academic: 2, documents: 3, review: 4 };
 
+// Helper to parse blood group string (e.g. 'O+', 'AB-', 'A') into alphabet & Rh sign
+const parseBloodGroup = (bg = '') => {
+  const clean = String(bg).trim().toUpperCase();
+  let rh = '';
+  let letter = '';
+
+  if (clean.endsWith('+')) {
+    rh = '+';
+    letter = clean.slice(0, -1);
+  } else if (clean.endsWith('-')) {
+    rh = '-';
+    letter = clean.slice(0, -1);
+  } else if (clean === '+' || clean === '-') {
+    rh = clean;
+    letter = '';
+  } else {
+    letter = clean;
+  }
+
+  return { letter, rh };
+};
+
 export default function FigmaAdmissionApp() {
   const navigate = useNavigate();
   const { login, adminLogin, register: authRegister, logout, user: authUser, isAuthenticated, isAdmin } = useAuth();
@@ -48,6 +70,26 @@ export default function FigmaAdmissionApp() {
 
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  // Scroll animations & progress state
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const totalScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      if (totalScroll > 0) {
+        const currentProgress = (window.scrollY / totalScroll) * 100;
+        setScrollProgress(Math.min(100, Math.max(0, currentProgress)));
+      }
+      setIsScrolled(window.scrollY > 40);
+      setShowScrollTop(window.scrollY > 350);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Application Wizard Form State (with password in Personal Details)
   const [form, setForm] = useState({
     program: 'btech-cs',
@@ -55,6 +97,7 @@ export default function FigmaAdmissionApp() {
     lastName: '',
     dob: '',
     gender: '',
+    bloodGroup: '',
     email: '',
     phone: '',
     password: '',
@@ -79,6 +122,31 @@ export default function FigmaAdmissionApp() {
     marksheet12: '',
     idProof: ''
   });
+
+  // Auto-transfer registered birth date and profile info to the Application Form window
+  useEffect(() => {
+    const savedDob = authUser?.dateOfBirth 
+      ? String(authUser.dateOfBirth).slice(0, 10) 
+      : localStorage.getItem('iem_registered_dob') || regForm.dateOfBirth || '';
+
+    if (savedDob) {
+      setForm(prev => (prev.dob === savedDob ? prev : { ...prev, dob: savedDob }));
+    }
+
+    if (authUser) {
+      const parts = (authUser.name || '').trim().split(' ');
+      const fName = parts[0] || '';
+      const lName = parts.slice(1).join(' ') || '';
+      setForm(prev => ({
+        ...prev,
+        firstName: prev.firstName || fName,
+        lastName: prev.lastName || lName,
+        email: prev.email || authUser.email || '',
+        phone: prev.phone || authUser.phone || '',
+        dob: prev.dob || (authUser.dateOfBirth ? String(authUser.dateOfBirth).slice(0, 10) : savedDob)
+      }));
+    }
+  }, [authUser, regForm.dateOfBirth, view]);
 
   // Track Status State
   const [searchAppId, setSearchAppId] = useState('');
@@ -145,7 +213,8 @@ export default function FigmaAdmissionApp() {
           fullName,
           dateOfBirth: form.dob || new Date('2005-01-01'),
           gender: form.gender || 'Male',
-          category: form.category || 'General'
+          category: form.category || 'General',
+          bloodGroup: form.bloodGroup || ''
         },
         contactInfo: {
           email: studentEmail,
@@ -261,6 +330,15 @@ export default function FigmaAdmissionApp() {
     e.preventDefault();
     setRegError('');
 
+    if (regForm.dateOfBirth) {
+      if (regForm.dateOfBirth > '2011-12-31') {
+        return setRegError('Applicant must be at least 15 years old (born on or before Dec 31, 2011)');
+      }
+      if (regForm.dateOfBirth < '1960-01-01') {
+        return setRegError('Please enter a valid Date of Birth (born on or after Jan 1, 1960)');
+      }
+    }
+
     if (regForm.password !== regForm.confirmPassword) {
       return setRegError('Passwords do not match');
     }
@@ -279,6 +357,18 @@ export default function FigmaAdmissionApp() {
         password: regForm.password,
         confirmPassword: regForm.confirmPassword
       });
+
+      // Transfer registered data to application wizard form
+      if (regForm.dateOfBirth) {
+        localStorage.setItem('iem_registered_dob', regForm.dateOfBirth);
+        setForm(prev => ({
+          ...prev,
+          dob: regForm.dateOfBirth,
+          email: regForm.email || prev.email,
+          phone: regForm.phone || prev.phone
+        }));
+      }
+
       // Immediately navigate to Student Dashboard
       navigate('/student/dashboard');
     } catch (err) {
@@ -300,7 +390,7 @@ export default function FigmaAdmissionApp() {
     ];
 
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f5f4f0' }}>
+      <div key="status" className="min-h-screen flex flex-col page-transition" style={{ backgroundColor: '#f5f4f0' }}>
         <header style={{ backgroundColor: '#0a1628' }}>
           <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
             <button onClick={() => setView('home')} className="flex items-center gap-3" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -419,7 +509,7 @@ export default function FigmaAdmissionApp() {
   // ==========================================
   if (view === 'portal-auth') {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f4f6f9', backgroundImage: 'radial-gradient(at 50% 0%, #ffffff 0%, #f1f4f8 100%)' }}>
+      <div key="portal-auth" className="min-h-screen flex flex-col page-transition" style={{ backgroundColor: '#f4f6f9', backgroundImage: 'radial-gradient(at 50% 0%, #ffffff 0%, #f1f4f8 100%)' }}>
         {/* Top Header */}
         <header style={{ backgroundColor: '#0a1628', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -502,7 +592,7 @@ export default function FigmaAdmissionApp() {
 
             {/* TAB 1: SIGN IN FORM */}
             {authMode === 'login' && (
-              <>
+              <div key="login" className="fade-in">
                 <div className="text-center mb-6">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 tracking-wide" style={{ backgroundColor: '#fffbf0', color: '#b38e36', border: '1px solid #fde68a' }}>
                     <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }}></span>
@@ -660,12 +750,12 @@ export default function FigmaAdmissionApp() {
                     Register New Account →
                   </button>
                 </div>
-              </>
+              </div>
             )}
 
             {/* TAB 2: REGISTRATION FORM */}
             {authMode === 'register' && (
-              <>
+              <div key="register" className="fade-in">
                 <div className="text-center mb-6">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 tracking-wide" style={{ backgroundColor: '#fffbf0', color: '#b38e36', border: '1px solid #fde68a' }}>
                     <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }}></span>
@@ -703,8 +793,9 @@ export default function FigmaAdmissionApp() {
                         type="text"
                         required
                         value={regForm.name}
-                        onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                        placeholder="e.g. Sourav Roy"
+                        onKeyDown={(e) => { if (/[0-9]/.test(e.key)) e.preventDefault(); }}
+                        onChange={(e) => setRegForm({ ...regForm, name: e.target.value.replace(/[^a-zA-Z\s.'-]/g, '') })}
+                        placeholder="e.g. Sourav Roy (Letters only)"
                         className="figma-input"
                         style={{ paddingLeft: '2.5rem' }}
                       />
@@ -749,9 +840,12 @@ export default function FigmaAdmissionApp() {
                         </div>
                         <input
                           type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]{10}"
+                          maxLength={10}
                           required
                           value={regForm.phone}
-                          onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                          onChange={(e) => setRegForm({ ...regForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                           placeholder="10-digit mobile"
                           className="figma-input"
                           style={{ paddingLeft: '2.5rem' }}
@@ -774,12 +868,24 @@ export default function FigmaAdmissionApp() {
                       </div>
                       <input
                         type="date"
+                        min="1960-01-01"
+                        max="2011-12-31"
                         value={regForm.dateOfBirth}
-                        onChange={(e) => setRegForm({ ...regForm, dateOfBirth: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setRegForm({ ...regForm, dateOfBirth: val });
+                          if (val) {
+                            localStorage.setItem('iem_registered_dob', val);
+                            setForm(prev => ({ ...prev, dob: val }));
+                          }
+                        }}
                         className="figma-input"
                         style={{ paddingLeft: '2.5rem' }}
                       />
                     </div>
+                    <span className="text-[11px] text-slate-500 mt-1 block font-sans">
+                      Applicant must be between 15 and 65 years old (born 1960 – 2011)
+                    </span>
                   </div>
 
                   {/* Passwords in 2-columns */}
@@ -865,7 +971,7 @@ export default function FigmaAdmissionApp() {
                     Sign In here →
                   </button>
                 </div>
-              </>
+              </div>
             )}
 
           </div>
@@ -881,7 +987,7 @@ export default function FigmaAdmissionApp() {
     const currentStepIdx = STEP_KEYS[view];
 
     return (
-      <div className="min-h-screen" style={{ backgroundColor: '#f5f4f0' }}>
+      <div key="application-wizard" className="min-h-screen page-transition" style={{ backgroundColor: '#f5f4f0' }}>
         {/* Top Header */}
         <header style={{ backgroundColor: '#0a1628' }} className="sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-16">
@@ -949,7 +1055,7 @@ export default function FigmaAdmissionApp() {
         <main className="max-w-6xl mx-auto px-6 py-10">
           {/* STEP 1: PROGRAM SELECTION */}
           {view === 'program' && (
-            <div className="max-w-3xl">
+            <div key="program" className="max-w-3xl step-transition">
               <h2 className="font-display text-2xl mb-2" style={{ color: '#0a1628' }}>
                 Select Your Program
               </h2>
@@ -1023,7 +1129,7 @@ export default function FigmaAdmissionApp() {
 
           {/* STEP 2: PERSONAL DETAILS + ACCOUNT PASSWORD */}
           {view === 'personal' && (
-            <div className="max-w-3xl">
+            <div key="personal" className="max-w-3xl step-transition">
               <div className="bg-white border rounded-lg p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                 <h2 className="font-display text-2xl mb-2" style={{ color: '#0a1628' }}>
                   Personal Details & Candidate Profile
@@ -1040,7 +1146,8 @@ export default function FigmaAdmissionApp() {
                     <input
                       type="text"
                       value={form.firstName}
-                      onChange={(e) => updateForm('firstName', e.target.value)}
+                      onKeyDown={(e) => { if (/[0-9]/.test(e.key)) e.preventDefault(); }}
+                      onChange={(e) => updateForm('firstName', e.target.value.replace(/[^a-zA-Z\s.'-]/g, ''))}
                       placeholder="e.g. Riya"
                       className="figma-input"
                     />
@@ -1053,7 +1160,8 @@ export default function FigmaAdmissionApp() {
                     <input
                       type="text"
                       value={form.lastName}
-                      onChange={(e) => updateForm('lastName', e.target.value)}
+                      onKeyDown={(e) => { if (/[0-9]/.test(e.key)) e.preventDefault(); }}
+                      onChange={(e) => updateForm('lastName', e.target.value.replace(/[^a-zA-Z\s.'-]/g, ''))}
                       placeholder="e.g. Sharma"
                       className="figma-input"
                     />
@@ -1065,10 +1173,15 @@ export default function FigmaAdmissionApp() {
                     </label>
                     <input
                       type="date"
+                      min="1960-01-01"
+                      max="2011-12-31"
                       value={form.dob}
                       onChange={(e) => updateForm('dob', e.target.value)}
                       className="figma-input"
                     />
+                    <span className="text-[11px] text-slate-500 mt-1 block">
+                      Applicant must be between 15 and 65 years old (born 1960 – 2011)
+                    </span>
                   </div>
 
                   <div>
@@ -1107,9 +1220,12 @@ export default function FigmaAdmissionApp() {
                     </label>
                     <input
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]{10}"
+                      maxLength={10}
                       value={form.phone}
-                      onChange={(e) => updateForm('phone', e.target.value)}
-                      placeholder="+91 98000 00000"
+                      onChange={(e) => updateForm('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="9800000000 (10 digits)"
                       className="figma-input"
                     />
                   </div>
@@ -1130,6 +1246,56 @@ export default function FigmaAdmissionApp() {
                       <option value="ST">ST</option>
                       <option value="PwD">PwD</option>
                     </select>
+                  </div>
+
+                  {/* Blood Group: 2 columns for Alphabet and Rh factor (+ / -) */}
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
+                      Blood Group
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <select
+                          value={parseBloodGroup(form.bloodGroup).letter}
+                          onChange={(e) => {
+                            const newLetter = e.target.value;
+                            const { rh } = parseBloodGroup(form.bloodGroup);
+                            const combined = newLetter && rh ? `${newLetter}${rh}` : (newLetter || rh);
+                            updateForm('bloodGroup', combined);
+                          }}
+                          className="figma-select"
+                          aria-label="Blood Group Alphabet"
+                        >
+                          <option value="">Group</option>
+                          <option value="A">A</option>
+                          <option value="B">B</option>
+                          <option value="AB">AB</option>
+                          <option value="O">O</option>
+                        </select>
+                      </div>
+                      <div>
+                        <select
+                          value={parseBloodGroup(form.bloodGroup).rh}
+                          onChange={(e) => {
+                            const newRh = e.target.value;
+                            const { letter } = parseBloodGroup(form.bloodGroup);
+                            const combined = letter && newRh ? `${letter}${newRh}` : (letter || newRh);
+                            updateForm('bloodGroup', combined);
+                          }}
+                          className="figma-select"
+                          aria-label="Rh Factor"
+                        >
+                          <option value="">Rh (+/-)</option>
+                          <option value="+">+ (Positive)</option>
+                          <option value="-">- (Negative)</option>
+                        </select>
+                      </div>
+                    </div>
+                    {form.bloodGroup && (
+                      <span className="text-[11px] text-sky-600 mt-1 block font-medium">
+                        Selected: <strong>{form.bloodGroup}</strong>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1200,7 +1366,8 @@ export default function FigmaAdmissionApp() {
                         <input
                           type="text"
                           value={form.city}
-                          onChange={(e) => updateForm('city', e.target.value)}
+                          onKeyDown={(e) => { if (/[0-9]/.test(e.key)) e.preventDefault(); }}
+                          onChange={(e) => updateForm('city', e.target.value.replace(/[^a-zA-Z\s.-]/g, ''))}
                           placeholder="Kolkata"
                           className="figma-input"
                         />
@@ -1222,12 +1389,15 @@ export default function FigmaAdmissionApp() {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                          PIN Code
+                          PIN Code (6 Digits)
                         </label>
                         <input
                           type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]{6}"
+                          maxLength={6}
                           value={form.pin}
-                          onChange={(e) => updateForm('pin', e.target.value)}
+                          onChange={(e) => updateForm('pin', e.target.value.replace(/\D/g, '').slice(0, 6))}
                           placeholder="700091"
                           className="figma-input"
                         />
@@ -1242,7 +1412,29 @@ export default function FigmaAdmissionApp() {
                   ← Back
                 </button>
                 <button
-                  onClick={() => setView('academic')}
+                  onClick={() => {
+                    if (form.firstName && /\d/.test(form.firstName)) {
+                      alert('First name cannot contain numbers.');
+                      return;
+                    }
+                    if (form.lastName && /\d/.test(form.lastName)) {
+                      alert('Last name cannot contain numbers.');
+                      return;
+                    }
+                    if (form.dob && (form.dob > '2011-12-31' || form.dob < '1960-01-01')) {
+                      alert('Please select a valid Date of Birth between Jan 1, 1960 and Dec 31, 2011 (Age 15–65).');
+                      return;
+                    }
+                    if (form.phone && form.phone.length < 10) {
+                      alert(`Mobile number is incomplete (${form.phone.length}/10 digits). Please enter a valid 10-digit mobile number.`);
+                      return;
+                    }
+                    if (form.pin && form.pin.length < 6) {
+                      alert(`PIN code is incomplete (${form.pin.length}/6 digits). Please enter a valid 6-digit postal PIN code.`);
+                      return;
+                    }
+                    setView('academic');
+                  }}
                   disabled={!form.firstName || !form.lastName || !form.email}
                   className="btn-navy"
                 >
@@ -1254,7 +1446,7 @@ export default function FigmaAdmissionApp() {
 
           {/* STEP 3: ACADEMIC QUALIFICATIONS */}
           {view === 'academic' && (
-            <div className="max-w-3xl space-y-5">
+            <div key="academic" className="max-w-3xl space-y-5 step-transition">
               <div className="bg-white border rounded-lg p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                 <h2 className="font-display text-2xl mb-6" style={{ color: '#0a1628' }}>
                   Academic Qualifications
@@ -1288,24 +1480,47 @@ export default function FigmaAdmissionApp() {
                           Year of Passing <span style={{ color: '#c9a84c' }}>*</span>
                         </label>
                         <input
-                          type="text"
+                          type="number"
+                          step="1"
+                          min="2018"
+                          max="2024"
                           value={form.tenthYear}
-                          onChange={(e) => updateForm('tenthYear', e.target.value)}
-                          placeholder="2022"
+                          onKeyDown={(e) => { if (['.', 'e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                            updateForm('tenthYear', val);
+                          }}
+                          placeholder="2022 (2018–2024)"
                           className="figma-input"
                         />
+                        {form.tenthYear && form.tenthYear.length === 4 && (Number(form.tenthYear) < 2018 || Number(form.tenthYear) > 2024) && (
+                          <span className="text-[11px] text-red-500 block mt-1">Must be between 2018 and 2024</span>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
                           Aggregate % <span style={{ color: '#c9a84c' }}>*</span>
                         </label>
                         <input
-                          type="text"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
                           value={form.tenthPercent}
+                          onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                           onChange={(e) => updateForm('tenthPercent', e.target.value)}
-                          placeholder="92.4"
+                          placeholder="92.4 (0-100%)"
                           className="figma-input"
+                          style={{
+                            borderColor: form.tenthPercent !== '' && (Number(form.tenthPercent) < 0 || Number(form.tenthPercent) > 100) ? '#ef4444' : undefined
+                          }}
                         />
+                        {form.tenthPercent !== '' && Number(form.tenthPercent) > 100 && (
+                          <span className="text-[11px] text-red-500 block mt-1">Percentage cannot exceed 100.00%</span>
+                        )}
+                        {form.tenthPercent !== '' && Number(form.tenthPercent) < 0 && (
+                          <span className="text-[11px] text-red-500 block mt-1">Percentage cannot be less than 0.00%</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1337,24 +1552,51 @@ export default function FigmaAdmissionApp() {
                           Year of Passing <span style={{ color: '#c9a84c' }}>*</span>
                         </label>
                         <input
-                          type="text"
+                          type="number"
+                          step="1"
+                          min={form.tenthYear ? String(Number(form.tenthYear) + 2) : "2018"}
+                          max={form.tenthYear ? String(Math.min(2026, Number(form.tenthYear) + 4)) : "2026"}
                           value={form.twelfthYear}
-                          onChange={(e) => updateForm('twelfthYear', e.target.value)}
-                          placeholder="2024"
+                          onKeyDown={(e) => { if (['.', 'e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
+                          onChange={(e) => updateForm('twelfthYear', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                          placeholder={form.tenthYear ? `e.g. ${Number(form.tenthYear) + 2} (${Number(form.tenthYear) + 2}–${Math.min(2026, Number(form.tenthYear) + 4)})` : "2024 (2018–2026)"}
                           className="figma-input"
                         />
+                        {form.tenthYear && form.twelfthYear && Number(form.twelfthYear) <= Number(form.tenthYear) && (
+                          <span className="text-[11px] text-red-500 block mt-1">
+                            Must be greater than Class 10 passing year ({form.tenthYear})
+                          </span>
+                        )}
+                        {form.tenthYear && form.twelfthYear && Number(form.twelfthYear) > Number(form.tenthYear) && (Number(form.twelfthYear) < Number(form.tenthYear) + 2 || Number(form.twelfthYear) > Number(form.tenthYear) + 4) && (
+                          <span className="text-[11px] text-red-500 block mt-1">
+                            Must be between +2 and +4 years of Class 10 ({Number(form.tenthYear) + 2} – {Math.min(2026, Number(form.tenthYear) + 4)})
+                          </span>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
                           Aggregate % <span style={{ color: '#c9a84c' }}>*</span>
                         </label>
                         <input
-                          type="text"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
                           value={form.twelfthPercent}
+                          onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                           onChange={(e) => updateForm('twelfthPercent', e.target.value)}
-                          placeholder="88.6"
+                          placeholder="88.6 (0-100%)"
                           className="figma-input"
+                          style={{
+                            borderColor: form.twelfthPercent !== '' && (Number(form.twelfthPercent) < 0 || Number(form.twelfthPercent) > 100) ? '#ef4444' : undefined
+                          }}
                         />
+                        {form.twelfthPercent !== '' && Number(form.twelfthPercent) > 100 && (
+                          <span className="text-[11px] text-red-500 block mt-1">Percentage cannot exceed 100.00%</span>
+                        )}
+                        {form.twelfthPercent !== '' && Number(form.twelfthPercent) < 0 && (
+                          <span className="text-[11px] text-red-500 block mt-1">Percentage cannot be less than 0.00%</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1384,13 +1626,17 @@ export default function FigmaAdmissionApp() {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase" style={{ color: '#4a5f7a' }}>
-                          All India / State Rank
+                          All India / State Rank (Integer)
                         </label>
                         <input
-                          type="text"
+                          type="number"
+                          step="1"
+                          min="1"
+                          max="500000"
                           value={form.entranceRank}
-                          onChange={(e) => updateForm('entranceRank', e.target.value)}
-                          placeholder="e.g. 1420"
+                          onKeyDown={(e) => { if (['.', 'e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
+                          onChange={(e) => updateForm('entranceRank', e.target.value.replace(/\D/g, ''))}
+                          placeholder="e.g. 1420 (min: 1)"
                           className="figma-input"
                         />
                       </div>
@@ -1416,7 +1662,41 @@ export default function FigmaAdmissionApp() {
                   ← Back
                 </button>
                 <button
-                  onClick={() => setView('documents')}
+                  onClick={() => {
+                    if (form.tenthYear && (Number(form.tenthYear) < 2018 || Number(form.tenthYear) > 2024)) {
+                      alert('Class 10 passing year must be between 2018 and 2024 (Class 12 requires at least 2 years and must be completed by 2026).');
+                      return;
+                    }
+                    if (form.twelfthYear && (Number(form.twelfthYear) < 2018 || Number(form.twelfthYear) > 2026)) {
+                      alert('Class 12 passing year must be between 2018 and 2026 (cannot be earlier than 2018 or in the future).');
+                      return;
+                    }
+                    if (form.tenthYear && form.twelfthYear) {
+                      const y10 = Number(form.tenthYear);
+                      const y12 = Number(form.twelfthYear);
+                      if (y12 <= y10) {
+                        alert(`Class 12 passing year cannot be less than or equal to Class 10 (Madhyamik) passing year (${y10}).`);
+                        return;
+                      }
+                      if (y12 < y10 + 2 || y12 > y10 + 4) {
+                        alert(`Class 12 passing year must be between +2 and +4 years of Class 10 passing year (${y10 + 2} – ${Math.min(2026, y10 + 4)}).`);
+                        return;
+                      }
+                    }
+                    if (form.tenthPercent !== '' && (Number(form.tenthPercent) < 0 || Number(form.tenthPercent) > 100)) {
+                      alert('Class 10 percentage cannot exceed 100.00% and must be between 0% and 100%.');
+                      return;
+                    }
+                    if (form.twelfthPercent !== '' && (Number(form.twelfthPercent) < 0 || Number(form.twelfthPercent) > 100)) {
+                      alert('Class 12 percentage cannot exceed 100.00% and must be between 0% and 100%.');
+                      return;
+                    }
+                    if (form.entranceRank && Number(form.entranceRank) < 1) {
+                      alert('Entrance exam rank must be a positive integer (min: 1).');
+                      return;
+                    }
+                    setView('documents');
+                  }}
                   className="btn-navy"
                 >
                   Continue →
@@ -1427,7 +1707,7 @@ export default function FigmaAdmissionApp() {
 
           {/* STEP 4: DOCUMENT UPLOAD */}
           {view === 'documents' && (
-            <div className="max-w-3xl">
+            <div key="documents" className="max-w-3xl step-transition">
               <div className="bg-white border rounded-lg p-8 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                 <h2 className="font-display text-2xl mb-2" style={{ color: '#0a1628' }}>
                   Upload Documents
@@ -1478,7 +1758,7 @@ export default function FigmaAdmissionApp() {
 
           {/* STEP 5: REVIEW & FINAL SUBMIT */}
           {view === 'review' && (
-            <div className="max-w-3xl space-y-6">
+            <div key="review" className="max-w-3xl space-y-6 step-transition">
               <div>
                 <h2 className="font-display text-2xl mb-1" style={{ color: '#0a1628' }}>
                   Review & Final Submission
@@ -1596,9 +1876,22 @@ export default function FigmaAdmissionApp() {
     : programs.filter(p => p.name.includes('M.') || p.name.includes('MBA') || p.name.includes('MCA'));
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f5f4f0' }}>
+    <div key="home" className="min-h-screen flex flex-col page-transition relative" style={{ backgroundColor: '#f5f4f0' }}>
+      {/* Scroll Progress Bar */}
+      <div
+        className="fixed top-0 left-0 h-[3px] z-[100] transition-all pointer-events-none"
+        style={{
+          width: `${scrollProgress}%`,
+          background: 'linear-gradient(90deg, #c9a84c 0%, #f9e39b 50%, #c9a84c 100%)',
+          boxShadow: '0 0 10px rgba(201, 168, 76, 0.7)'
+        }}
+      />
+
       {/* 1. Navigation Bar matching Figma Site */}
-      <nav style={{ backgroundColor: '#0a1628' }}>
+      <nav
+        className={`nav-sticky ${isScrolled ? 'is-scrolled' : ''}`}
+        style={{ backgroundColor: '#0a1628' }}
+      >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <IEMLogo size="md" />
@@ -1619,23 +1912,25 @@ export default function FigmaAdmissionApp() {
             </a>
             <button
               onClick={() => { setView('status'); setSearchAppId('IEM-2026-1001'); }}
-              className="btn-outline-gold text-xs hidden sm:inline-flex items-center gap-1.5"
+              className="nav-btn-track hidden sm:inline-flex"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="7.5" />
+                <line x1="21" y1="21" x2="16.5" y2="16.5" />
+              </svg>
               <span>Track Application</span>
             </button>
             
             {/* New Registration Button with Icon */}
             <button
               onClick={() => { setAuthMode('register'); setView('portal-auth'); }}
-              className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded font-bold transition-all shadow-sm hover:brightness-105"
-              style={{ backgroundColor: '#c9a84c', color: '#0a1628', border: 'none', cursor: 'pointer' }}
+              className="nav-btn-register"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="8.5" cy="7" r="4" />
-                <line x1="20" y1="8" x2="20" y2="14" />
-                <line x1="23" y1="11" x2="17" y2="11" />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="19" y1="8" x2="19" y2="14" />
+                <line x1="22" y1="11" x2="16" y2="11" />
               </svg>
               <span>New Registration</span>
             </button>
@@ -1643,10 +1938,9 @@ export default function FigmaAdmissionApp() {
             {/* Portal Sign In Button with Icon */}
             <button
               onClick={() => { setAuthMode('login'); setView('portal-auth'); }}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded text-white/90 hover:text-white border border-white/20 transition-all hover:border-white/40"
-              style={{ background: 'transparent', cursor: 'pointer' }}
+              className="nav-btn-login"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                 <polyline points="10 17 15 12 10 7" />
                 <line x1="15" y1="12" x2="3" y2="12" />
@@ -1746,7 +2040,7 @@ export default function FigmaAdmissionApp() {
 
 
           {/* 4 Key Stat Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-16 pt-12 border-t border-white/10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-16 pt-12 border-t border-white/10 scroll-reveal">
             {[
               { label: 'Years of Excellence', value: '35+' },
               { label: 'Programs Offered', value: '45+' },
@@ -1768,7 +2062,7 @@ export default function FigmaAdmissionApp() {
 
       {/* 3. Programs & Disciplines Section */}
       <section id="programs" className="max-w-7xl mx-auto px-6 py-20 w-full">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4 scroll-reveal">
           <div>
             <p className="text-xs font-semibold tracking-[0.2em] uppercase mb-2" style={{ color: '#c9a84c' }}>
               What We Offer
@@ -1785,7 +2079,7 @@ export default function FigmaAdmissionApp() {
                 key={filter}
                 type="button"
                 onClick={() => setSelectedFilter(filter)}
-                className={`text-xs px-3.5 py-1.5 rounded-full font-semibold border transition-all ${selectedFilter === filter ? 'bg-navy-900 text-white border-navy-900' : 'bg-white text-slate-500 border-slate-300'}`}
+                className={`text-xs px-3.5 py-1.5 rounded-full font-semibold border tab-filter-btn ${selectedFilter === filter ? 'bg-navy-900 text-white border-navy-900' : 'bg-white text-slate-500 border-slate-300'}`}
                 style={{
                   backgroundColor: selectedFilter === filter ? '#0a1628' : 'white',
                   color: selectedFilter === filter ? 'white' : '#4a5f7a',
@@ -1799,11 +2093,11 @@ export default function FigmaAdmissionApp() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredPrograms.map((prog) => (
+        <div key={selectedFilter} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 fade-in">
+          {filteredPrograms.map((prog, index) => (
             <div
               key={prog.id}
-              className="group p-6 bg-white border rounded hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 flex flex-col justify-between"
+              className={`group p-6 bg-white border rounded program-card-hover flex flex-col justify-between scroll-reveal scroll-reveal-delay-${(index % 3) + 1}`}
               style={{ borderColor: 'rgba(0,0,0,0.06)' }}
             >
               <div>
@@ -1844,7 +2138,7 @@ export default function FigmaAdmissionApp() {
           ))}
         </div>
 
-        <div className="mt-10 text-center">
+        <div className="mt-10 text-center scroll-reveal">
           <button
             onClick={() => setView('program')}
             className="btn-gold"
@@ -1857,12 +2151,14 @@ export default function FigmaAdmissionApp() {
       {/* 4. Admission Timeline / Key Dates */}
       <section id="timeline" style={{ backgroundColor: '#0a1628' }} className="py-20 text-white w-full">
         <div className="max-w-7xl mx-auto px-6">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase mb-2" style={{ color: '#c9a84c' }}>
-            Key Dates
-          </p>
-          <h2 className="font-display text-3xl sm:text-4xl text-white mb-12">
-            Admission Timeline 2026–27
-          </h2>
+          <div className="scroll-reveal">
+            <p className="text-xs font-semibold tracking-[0.2em] uppercase mb-2" style={{ color: '#c9a84c' }}>
+              Key Dates
+            </p>
+            <h2 className="font-display text-3xl sm:text-4xl text-white mb-12">
+              Admission Timeline 2026–27
+            </h2>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
@@ -1873,7 +2169,7 @@ export default function FigmaAdmissionApp() {
             ].map((item, idx) => (
               <div
                 key={idx}
-                className="relative pl-5 border-l-2"
+                className={`relative pl-5 border-l-2 scroll-reveal scroll-reveal-delay-${idx + 1}`}
                 style={{ borderColor: item.status === 'active' ? '#c9a84c' : '#1b3058' }}
               >
                 <div
@@ -1902,7 +2198,7 @@ export default function FigmaAdmissionApp() {
 
       {/* 5. 5-Step Admission Journey Guide */}
       <section className="max-w-7xl mx-auto px-6 py-20 w-full">
-        <div className="text-center mb-12">
+        <div className="text-center mb-12 scroll-reveal">
           <p className="text-xs font-semibold tracking-[0.2em] uppercase mb-2" style={{ color: '#c9a84c' }}>
             Application Steps
           </p>
@@ -1918,8 +2214,8 @@ export default function FigmaAdmissionApp() {
             { step: '03', title: 'Academic Scores', desc: 'Enter Class 10, 12, and entrance examination ranks.' },
             { step: '04', title: 'Upload Files', desc: 'Attach photograph, signature, and marksheets.' },
             { step: '05', title: 'Review & Track', desc: 'Get your instant Application ID and track status live.' }
-          ].map((s) => (
-            <div key={s.step} className="bg-white p-6 rounded-lg border shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+          ].map((s, idx) => (
+            <div key={s.step} className={`bg-white p-6 rounded-lg border shadow-sm step-card-hover scroll-reveal scroll-reveal-delay-${idx + 1}`} style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
               <span className="font-mono text-2xl font-bold mb-2 block" style={{ color: '#c9a84c' }}>{s.step}</span>
               <h3 className="font-semibold text-sm mb-1" style={{ color: '#0a1628' }}>{s.title}</h3>
               <p className="text-xs text-muted">{s.desc}</p>
@@ -1951,6 +2247,21 @@ export default function FigmaAdmissionApp() {
           </p>
         </div>
       </footer>
+
+      {/* Floating Scroll-To-Top Button */}
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="scroll-top-btn"
+          aria-label="Scroll to top"
+          title="Scroll to top"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

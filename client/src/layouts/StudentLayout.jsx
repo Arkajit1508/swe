@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 
 const StudentLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -13,7 +14,9 @@ const StudentLayout = () => {
         <Sidebar isOpen={sidebarOpen} closeSidebar={() => setSidebarOpen(false)} />
         <main className="main-content">
           <div className="page-wrapper">
-            <Outlet />
+            <div key={location.pathname} className="page-transition">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>

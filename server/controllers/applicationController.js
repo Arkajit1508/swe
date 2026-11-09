@@ -29,15 +29,16 @@ exports.getMyApplication = async (req, res) => {
   try {
     let application = await Application.findOne({ applicant: req.user._id })
       .populate('courseSelection.courseId')
-      .populate('applicant', 'name email phone');
+      .populate('applicant', 'name email phone dateOfBirth');
 
     if (!application) {
-      // Auto initialize a clean DRAFT application for new students
+      // Auto initialize a clean DRAFT application for new students with registered profile details
       application = await Application.create({
         applicant: req.user._id,
         applicationNumber: generateAppNumber(),
         personalInfo: {
           fullName: req.user.name || '',
+          dateOfBirth: req.user.dateOfBirth || undefined,
           nationality: 'Indian'
         },
         contactInfo: {
@@ -47,6 +48,11 @@ exports.getMyApplication = async (req, res) => {
         status: 'DRAFT',
         paymentStatus: 'PENDING'
       });
+    } else if (req.user.dateOfBirth && (!application.personalInfo || !application.personalInfo.dateOfBirth)) {
+      // Auto transfer registered dateOfBirth into existing draft application
+      application.personalInfo = application.personalInfo || {};
+      application.personalInfo.dateOfBirth = req.user.dateOfBirth;
+      await application.save();
     }
 
     const documents = await Document.find({ applicationId: application._id });
@@ -89,11 +95,55 @@ exports.saveDraft = async (req, res) => {
       });
     }
 
-    if (personalInfo) application.personalInfo = { ...application.personalInfo, ...personalInfo };
-    if (contactInfo) application.contactInfo = { ...application.contactInfo, ...contactInfo };
-    if (academicInfo) application.academicInfo = { ...application.academicInfo, ...academicInfo };
+    if (personalInfo) {
+      if (personalInfo.guardianPhone) {
+        personalInfo.guardianPhone = String(personalInfo.guardianPhone).replace(/\D/g, '').slice(0, 10);
+      }
+      application.personalInfo = { ...application.personalInfo, ...personalInfo };
+    }
+    if (contactInfo) {
+      if (contactInfo.phone) {
+        contactInfo.phone = String(contactInfo.phone).replace(/\D/g, '').slice(0, 10);
+      }
+      if (contactInfo.pinCode) {
+        contactInfo.pinCode = String(contactInfo.pinCode).replace(/\D/g, '').slice(0, 6);
+      }
+      application.contactInfo = { ...application.contactInfo, ...contactInfo };
+    }
+    if (academicInfo) {
+      if (academicInfo.tenthYear !== undefined && academicInfo.tenthYear !== '') {
+        academicInfo.tenthYear = Math.max(2018, Math.min(2024, Math.round(Number(academicInfo.tenthYear))));
+      }
+      if (academicInfo.twelfthYear !== undefined && academicInfo.twelfthYear !== '') {
+        academicInfo.twelfthYear = Math.max(2018, Math.min(2026, Math.round(Number(academicInfo.twelfthYear))));
+      }
+      if (academicInfo.tenthPercentage !== undefined && academicInfo.tenthPercentage !== '') {
+        const p10 = Number(academicInfo.tenthPercentage);
+        if (!isNaN(p10) && (p10 < 0 || p10 > 100)) {
+          return res.status(400).json({
+            success: false,
+            message: `Class 10 percentage cannot exceed 100% and must be between 0% and 100% (received: ${academicInfo.tenthPercentage}%)`
+          });
+        }
+      }
+      if (academicInfo.twelfthPercentage !== undefined && academicInfo.twelfthPercentage !== '') {
+        const p12 = Number(academicInfo.twelfthPercentage);
+        if (!isNaN(p12) && (p12 < 0 || p12 > 100)) {
+          return res.status(400).json({
+            success: false,
+            message: `Class 12 percentage cannot exceed 100% and must be between 0% and 100% (received: ${academicInfo.twelfthPercentage}%)`
+          });
+        }
+      }
+      application.academicInfo = { ...application.academicInfo, ...academicInfo };
+    }
     if (courseSelection) application.courseSelection = { ...application.courseSelection, ...courseSelection };
-    if (examInfo) application.examInfo = { ...application.examInfo, ...examInfo };
+    if (examInfo) {
+      if (examInfo.rankOrScore !== undefined && examInfo.rankOrScore !== '') {
+        examInfo.rankOrScore = Math.max(1, Math.round(Number(examInfo.rankOrScore)));
+      }
+      application.examInfo = { ...application.examInfo, ...examInfo };
+    }
 
     application.updatedAt = Date.now();
     await application.save();
@@ -137,8 +187,28 @@ exports.submitApplication = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please complete all required Personal Information fields' });
     }
 
+    if (/\d/.test(personalInfo.fullName)) {
+      return res.status(400).json({ success: false, message: 'Candidate Name cannot contain numbers. Only letters and spaces are allowed.' });
+    }
+
+    if (personalInfo.guardianName && /\d/.test(personalInfo.guardianName)) {
+      return res.status(400).json({ success: false, message: 'Parent / Guardian Name cannot contain numbers. Only letters and spaces are allowed.' });
+    }
+
+    if (personalInfo.guardianPhone && personalInfo.guardianPhone.length !== 10) {
+      return res.status(400).json({ success: false, message: 'Guardian Contact Number must be a valid 10-digit mobile number.' });
+    }
+
     if (!contactInfo?.addressLine || !contactInfo?.city || !contactInfo?.state || !contactInfo?.pinCode) {
       return res.status(400).json({ success: false, message: 'Please complete all required Contact Information fields' });
+    }
+
+    if (!contactInfo.phone || contactInfo.phone.length !== 10) {
+      return res.status(400).json({ success: false, message: 'Candidate Mobile Number must be a valid 10-digit mobile number.' });
+    }
+
+    if (!contactInfo.pinCode || contactInfo.pinCode.length !== 6) {
+      return res.status(400).json({ success: false, message: 'PIN Code must be a valid 6-digit postal code.' });
     }
 
     if (!academicInfo?.tenthPercentage || !academicInfo?.twelfthPercentage) {
