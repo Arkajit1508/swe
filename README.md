@@ -299,33 +299,9 @@ const departmentDistribution = await Application.aggregate([
 
 ---
 
-## 9. Viva / Demonstration Walkthrough
-
-When presenting this project during a lab viva:
-1. **Open Landing Page** (`http://localhost:3000`): Show IEM programs and the 4-step admission workflow.
-2. **Student Flow**:
-   - Register a new student or log in using `rohan.sharma@example.com`.
-   - Show the **Student Dashboard** with progress stepper and notifications.
-   - Navigate to **Application Form**: Demonstrate multi-section tabs, form validation, and "Save Draft".
-   - Navigate to **Document Upload**: Demonstrate certificate upload with local `/uploads` storage and verification status.
-   - Navigate to **Fee Payment**: Open demo payment gateway modal, execute ₹500 transaction, and inspect the generated receipt.
-   - Click **Submit Application**: Demonstrate status transition to `SUBMITTED`.
-   - Open **Print Application**: Show the formatted official dossier and browser print dialogue.
-   - Open **Entrance Exam** & **Seat Allocation**: Show IEMJEE merit rank and provisional allotment letter.
-3. **Admin Flow**:
-   - Log out and log in as `admin@iem.edu`.
-   - Show **Admin Dashboard**: Explain the MongoDB `$group` aggregation statistics for departments and status distributions.
-   - Open **All Applications**: Use the live search and status/department filters.
-   - Click **Inspect Dossier**: Show the applicant's complete profile.
-   - Demonstrate **Document Verification**: Click "Verify" / "Reject" with remarks on individual documents.
-   - Demonstrate **Status State Machine**: Advance application status to `DOCUMENT_VERIFICATION` or `APPROVED`.
-   - Open **Seat Counselling**: Allocate a branch seat to an approved student.
-   - Log back in as the student to show the real-time updated status badge and notification alert.
-
----
-
-## 10. Authors & Acknowledgements
+## 9. Authors & Acknowledgements
 
 - **Course**: Software Engineering Laboratory
+- **Authors**: Arkajit , Swapnil , Sayan , Ritasmit
 - **Institute**: Institute of Engineering & Management (IEM), Kolkata
 - **Stack**: MongoDB, Express.js, React, Node.js (MERN)
