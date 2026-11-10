@@ -5,9 +5,13 @@ const Notification = require('../models/Notification');
 
 // Helper to generate JWT
 const generateToken = (id, role) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured.');
+  }
+
   return jwt.sign(
     { id, role },
-    process.env.JWT_SECRET || 'iem_secret_jwt_key_2026_academic_poc',
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 };
