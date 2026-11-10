@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 
@@ -22,9 +23,14 @@ const DocumentUpload = () => {
   const fetchDocuments = async () => {
     try {
       const appRes = await api.get('/applications/me');
+
       if (appRes.success && appRes.application) {
         setApplicationId(appRes.application._id);
-        const docsRes = await api.get(`/documents/application/${appRes.application._id}`);
+
+        const docsRes = await api.get(
+          `/documents/application/${appRes.application._id}`
+        );
+
         if (docsRes.success) {
           setDocuments(docsRes.documents || []);
         }
@@ -40,14 +46,22 @@ const DocumentUpload = () => {
     fetchDocuments();
   }, []);
 
+  // Upload or replace a document
   const handleUpload = async (e) => {
     e.preventDefault();
+
     if (!file) {
-      return setMessage({ type: 'danger', text: 'Please choose a file to upload' });
+      return setMessage({
+        type: 'danger',
+        text: 'Please choose a file to upload'
+      });
     }
 
     if (!applicationId) {
-      return setMessage({ type: 'danger', text: 'Application profile not initialized' });
+      return setMessage({
+        type: 'danger',
+        text: 'Application profile not initialized'
+      });
     }
 
     setUploading(true);
@@ -60,70 +74,159 @@ const DocumentUpload = () => {
 
     try {
       const res = await api.post('/documents/upload', formData);
+
       if (res.success) {
-        setMessage({ type: 'success', text: `Uploaded ${selectedType.replace(/_/g, ' ')} successfully!` });
+        setMessage({
+          type: 'success',
+          text: `Uploaded ${selectedType.replace(/_/g, ' ')} successfully!`
+        });
+
         setFile(null);
-        // Reset file input
+
         const fileInput = document.getElementById('docFileInput');
-        if (fileInput) fileInput.value = '';
-        fetchDocuments();
+
+        if (fileInput) {
+          fileInput.value = '';
+        }
+
+        await fetchDocuments();
       }
     } catch (err) {
-      setMessage({ type: 'danger', text: err.message || 'Upload failed' });
+      setMessage({
+        type: 'danger',
+        text: err.message || 'Upload failed'
+      });
     } finally {
       setUploading(false);
     }
   };
 
+  // Delete a document
   const handleDelete = async (docId) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) return;
+    if (!window.confirm('Are you sure you want to delete this document?')) {
+      return;
+    }
 
     try {
       const res = await api.delete(`/documents/${docId}`);
+
       if (res.success) {
-        setMessage({ type: 'success', text: 'Document removed successfully' });
-        fetchDocuments();
+        setMessage({
+          type: 'success',
+          text: 'Document removed successfully'
+        });
+
+        await fetchDocuments();
       }
     } catch (err) {
-      setMessage({ type: 'danger', text: err.message || 'Delete failed' });
+      setMessage({
+        type: 'danger',
+        text: err.message || 'Delete failed'
+      });
     }
   };
 
+  // View a document through a temporary private Supabase URL
+  const handleViewDocument = async (docId) => {
+    try {
+      await api.openDocument(docId);
+    } catch (err) {
+      setMessage({
+        type: 'danger',
+        text: err.message || 'Unable to open document'
+      });
+    }
+  };
+
+  // Document verification status badge
   const getDocStatusBadge = (status) => {
     switch (status) {
       case 'VERIFIED':
-        return <span style={{ color: 'var(--success)', fontWeight: '700', fontSize: '0.8rem' }}>✓ Verified</span>;
+        return (
+          <span style={{
+            color: 'var(--success)',
+            fontWeight: '700',
+            fontSize: '0.8rem'
+          }}>
+            ✓ Verified
+          </span>
+        );
+
       case 'REJECTED':
-        return <span style={{ color: 'var(--danger)', fontWeight: '700', fontSize: '0.8rem' }}>✕ Rejected</span>;
+        return (
+          <span style={{
+            color: 'var(--danger)',
+            fontWeight: '700',
+            fontSize: '0.8rem'
+          }}>
+            ✕ Rejected
+          </span>
+        );
+
       default:
-        return <span style={{ color: 'var(--warning)', fontWeight: '600', fontSize: '0.8rem' }}>⏳ Pending Verification</span>;
+        return (
+          <span style={{
+            color: 'var(--warning)',
+            fontWeight: '600',
+            fontSize: '0.8rem'
+          }}>
+            ⏳ Pending Verification
+          </span>
+        );
     }
   };
 
+  // Safely format uploaded date
+  const formatUploadedDate = (doc) => {
+    const dateValue = doc.uploadedAt || doc.createdAt;
+
+    if (!dateValue) {
+      return 'N/A';
+    }
+
+    const date = new Date(dateValue);
+
+    if (Number.isNaN(date.getTime())) {
+      return 'N/A';
+    }
+
+    return date.toLocaleDateString('en-IN');
+  };
+
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '3rem' }}>Loading documents checklist...</div>;
+    return (
+      <div style={{ textAlign: 'center', padding: '3rem' }}>
+        Loading documents checklist...
+      </div>
+    );
   }
 
   return (
     <div>
       <h1 className="page-title">Document Upload & Management</h1>
+
       <p className="page-subtitle">
-        Upload scanned copies of your official documents in PDF, PNG, or JPG format (Max 5MB per file)
+        Upload scanned copies of your official documents in PDF, PNG, or JPG
+        format (Max 5MB per file)
       </p>
 
       {message.text && (
-        <div className={`alert alert-${message.type}`}>{message.text}</div>
+        <div className={`alert alert-${message.type}`}>
+          {message.text}
+        </div>
       )}
 
       {/* Upload Box */}
       <div className="card" style={{ marginBottom: '2rem' }}>
         <h3 className="section-title">Upload / Replace Document</h3>
+
         <form onSubmit={handleUpload}>
           <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">
                 Select Document Type <span className="required">*</span>
               </label>
+
               <select
                 className="form-control"
                 value={selectedType}
@@ -141,19 +244,27 @@ const DocumentUpload = () => {
               <label className="form-label">
                 Choose File (PDF, JPG, PNG) <span className="required">*</span>
               </label>
+
               <input
                 type="file"
                 id="docFileInput"
                 className="form-control"
                 accept=".pdf,.png,.jpg,.jpeg"
-                onChange={(e) => setFile(e.target.files[0])}
+                onChange={(e) => setFile(e.target.files[0] || null)}
                 required
               />
-              <div className="form-hint">Maximum file size allowed is 5 MB.</div>
+
+              <div className="form-hint">
+                Maximum file size allowed is 5 MB.
+              </div>
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-sm" disabled={uploading}>
+          <button
+            type="submit"
+            className="btn btn-primary btn-sm"
+            disabled={uploading}
+          >
             {uploading ? 'Uploading File...' : '📤 Upload Selected Document'}
           </button>
         </form>
@@ -162,9 +273,15 @@ const DocumentUpload = () => {
       {/* Uploaded Documents List */}
       <div className="card">
         <h3 className="section-title">Uploaded Documents Checklist</h3>
+
         {documents.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '1rem 0' }}>
-            No documents uploaded yet. Please use the form above to upload your certificates.
+          <p style={{
+            color: 'var(--text-muted)',
+            fontSize: '0.9rem',
+            padding: '1rem 0'
+          }}>
+            No documents uploaded yet. Please use the form above to upload
+            your certificates.
           </p>
         ) : (
           <div className="table-responsive">
@@ -180,30 +297,58 @@ const DocumentUpload = () => {
                   <th>Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {documents.map((doc) => (
                   <tr key={doc._id}>
                     <td>
-                      <strong>{doc.documentType.replace(/_/g, ' ')}</strong>
+                      <strong>
+                        {doc.documentType.replace(/_/g, ' ')}
+                      </strong>
                     </td>
-                    <td style={{ color: 'var(--text-muted)' }}>{doc.originalFileName}</td>
-                    <td>{doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : 'N/A'}</td>
-                    <td>{new Date(doc.uploadedAt).toLocaleDateString()}</td>
-                    <td>{getDocStatusBadge(doc.verificationStatus)}</td>
-                    <td style={{ fontSize: '0.8rem', color: doc.remarks ? 'var(--danger)' : 'var(--text-muted)' }}>
+
+                    <td style={{ color: 'var(--text-muted)' }}>
+                      {doc.originalFileName}
+                    </td>
+
+                    <td>
+                      {doc.fileSize
+                        ? `${Math.round(doc.fileSize / 1024)} KB`
+                        : 'N/A'}
+                    </td>
+
+                    <td>
+                      {formatUploadedDate(doc)}
+                    </td>
+
+                    <td>
+                      {getDocStatusBadge(doc.verificationStatus)}
+                    </td>
+
+                    <td style={{
+                      fontSize: '0.8rem',
+                      color: doc.remarks
+                        ? 'var(--danger)'
+                        : 'var(--text-muted)'
+                    }}>
                       {doc.remarks || '—'}
                     </td>
+
                     <td>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <a
-                          href={`http://localhost:5000${doc.filePath}`}
-                          target="_blank"
-                          rel="noreferrer"
+                      <div style={{
+                        display: 'flex',
+                        gap: '0.5rem'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => handleViewDocument(doc._id)}
                           className="btn btn-secondary btn-sm"
                         >
                           👁️ View
-                        </a>
+                        </button>
+
                         <button
+                          type="button"
                           onClick={() => handleDelete(doc._id)}
                           className="btn btn-danger btn-sm"
                           title="Delete document"

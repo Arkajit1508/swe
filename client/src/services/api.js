@@ -1,63 +1,86 @@
-// Central API service for making HTTP requests to Express server
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
+// Common API request function
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem('iem_token');
 
   const headers = {
+    Accept: 'application/json',
     ...options.headers
   };
 
-  // If payload is not FormData, attach Content-Type JSON
-  if (!(options.body instanceof FormData)) {
+  // Don't set Content-Type for FormData.
+  // The browser automatically sets the multipart boundary.
+  if (!(options.body instanceof FormData) && options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
 
-  // Attach JWT Bearer token if available
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
-  const config = {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers
-  };
+  });
+
+  let data;
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      // If 401 Unauthorized, handle token expiration gracefully
-      if (response.status === 401 && !endpoint.includes('/auth/login')) {
-        localStorage.removeItem('iem_token');
-        localStorage.removeItem('iem_user');
-        window.location.href = '/login';
-      }
-      throw new Error(data.message || `Request failed with status ${response.status}`);
-    }
-
-    return data;
-  } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error.message);
-    throw error;
+    data = await response.json();
+  } catch {
+    throw new Error('Invalid response received from server.');
   }
+
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed with status ${response.status}`);
+  }
+
+  return data;
 };
 
 export const api = {
-  get: (endpoint) => request(endpoint, { method: 'GET' }),
+  get: (endpoint) =>
+    request(endpoint, { method: 'GET' }),
+
   post: (endpoint, body) =>
     request(endpoint, {
       method: 'POST',
       body: body instanceof FormData ? body : JSON.stringify(body)
     }),
+
   put: (endpoint, body) =>
     request(endpoint, {
       method: 'PUT',
       body: body instanceof FormData ? body : JSON.stringify(body)
     }),
-  delete: (endpoint) => request(endpoint, { method: 'DELETE' })
+
+  delete: (endpoint) =>
+    request(endpoint, { method: 'DELETE' }),
+
+  // Open a private document using a temporary Supabase URL
+  openDocument: async (documentId) => {
+    const newWindow = window.open('about:blank', '_blank');
+
+    try {
+      const data = await request(`/documents/${documentId}/url`, {
+        method: 'GET'
+      });
+
+      if (newWindow) {
+        newWindow.location.href = data.url;
+      } else {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      if (newWindow) {
+        newWindow.close();
+      }
+
+      throw error;
+    }
+  }
 };
 
 export default api;

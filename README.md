@@ -1,307 +1,457 @@
 # IEM Admission Management System
 
-An academic full-stack web application developed for the **Software Engineering Lab Project** representing an end-to-end admission portal for the **Institute of Engineering & Management (IEM), Kolkata**.
+A full-stack academic web application developed for the Software Engineering Laboratory Project, representing an end-to-end admission portal for the Institute of Engineering & Management (IEM), Kolkata.
 
-> **Note on Technology Stack**: The academic project assignment specifies the MEAN stack, but this implementation is intentionally built using **MERN (MongoDB, Express.js, React, Node.js)** as permitted for modern single-page frontend architecture.
+**Live Application:** [https://iem-admission-frontend.onrender.com](https://iem-admission-frontend.onrender.com)
+
+**Backend API:** [https://iem-admission-api.onrender.com](https://iem-admission-api.onrender.com)
+
+> **Technology Stack Note:** Although the academic assignment specifies the MEAN stack, this implementation uses MERN (MongoDB, Express.js, React, Node.js), as permitted for a modern single-page frontend architecture.
 
 ---
 
 ## 1. Project Overview
 
-The **IEM Admission Management System** automates the entire student admission lifecycle—from initial online application submission and document upload to entrance exam (IEMJEE) score tracking, admin verification, and final departmental seat allocation counselling.
+The IEM Admission Management System streamlines the student admission lifecycle, from online registration and application submission to document verification, entrance examination management, merit ranking, and departmental seat allocation.
 
-### Key Capabilities:
-- **For Applicants / Students**:
-  - Register account and secure JWT login.
-  - Multi-section application form (Personal, Contact, Academic, Course Selection, Entrance Exam).
-  - Save progress as Draft and resume anytime.
-  - Upload, inspect, and replace scanned certificates (Marksheets, ID proof, Photo) via Multer.
-  - Mock application fee payment (₹500) with instant receipt generation.
-  - Track real-time progress through a 7-stage visual admission tracker.
-  - Download and print the complete, formatted official application dossier.
-  - View entrance exam schedule, merit rank, and provisional seat allotment letter.
-  - In-app notification inbox with unread status indicators.
+### Key Features
 
-- **For Administrators & Admissions Committee**:
-  - Secure Admin authentication (`admin@iem.edu`).
-  - Analytics Dashboard driven by **MongoDB Aggregation Pipelines** (`$match`, `$group`, `$sort`).
-  - Searchable and filterable table of all candidate submissions.
-  - Full applicant dossier inspector.
-  - Document verification checklist with 1-click Verify/Reject controls and feedback remarks.
-  - State-machine status transitions (enforced strictly on the server).
-  - Entrance exam mark entry, rank calculation, and admit card tracking.
-  - Departmental counselling & seat allocation module.
-  - Course and program capacity management.
+**For Applicants / Students**
 
----
+- Student registration and secure JWT-based authentication.
+- Multi-section application form covering personal, contact, academic, course selection, and entrance examination details.
+- Save applications as drafts and resume later.
+- Upload, view, and replace supporting documents.
+- Simulated application fee payment of ₹500 with receipt generation.
+- Seven-stage visual admission progress tracker.
+- View and download application details.
+- Access entrance examination schedules, merit ranks, and provisional seat allotment information.
+- In-app notification system with unread status indicators.
 
-## 2. System Architecture
+**For Administrators / Admissions Committee**
 
-```
-                    APPLICANT / ADMIN
-                            │
-                            ▼
-                     REACT FRONTEND
-             (Vite + React Router + CSS)
-                            │
-              HTTP / JSON / Multi-Part FormData
-                            │
-                            ▼
-                     EXPRESS.JS API
-                     (Node.js Server)
-                            │
-     ┌──────────────────────┼──────────────────────┐
-     ▼                      ▼                      ▼
-MongoDB Database       Local Disk Store        Auth Layer
-  (Mongoose)              (/uploads)         (JWT + bcrypt)
-```
+- Secure administrator authentication.
+- Analytics dashboard powered by MongoDB aggregation pipelines.
+- Searchable and filterable applicant records.
+- Detailed applicant profile and application inspection.
+- Document verification with approve/reject actions and remarks.
+- Server-enforced application status transitions.
+- Entrance examination marks entry and rank management.
+- Admit card and examination status tracking.
+- Departmental counselling and seat allocation.
+- Course and program capacity management.
 
 ---
 
-## 3. Technology Stack
+## 2. Live Deployment
 
-- **Frontend**:
-  - **React 18** (Functional components, Hooks: `useState`, `useEffect`, `useContext`)
-  - **Vite** (Next-generation lightning-fast build tool)
-  - **React Router v6** (Declarative routing, Protected Route Guards)
-  - **Plain CSS** (Design system tokens, responsive grids, zero heavy UI framework overhead)
-- **Backend**:
-  - **Node.js** & **Express.js** (REST API architecture)
-  - **Mongoose** (Object Data Modeling for MongoDB)
-  - **JWT (jsonwebtoken)** (Stateless session tokens)
-  - **bcryptjs** (One-way salted password hashing)
-  - **Multer** (Disk storage for multi-part file uploads)
-  - **CORS & dotenv** (Cross-origin resource sharing & environment management)
-- **Database**:
-  - **MongoDB** (NoSQL document store with aggregation pipelines)
+The application is deployed using Render.
+
+| Component        | Deployment         |
+| ---------------- | ------------------ |
+| React frontend   | Render Static Site |
+| Express backend  | Render Web Service |
+| Database         | MongoDB Atlas      |
+| Document storage | Supabase Storage   |
+| Source code      | GitHub             |
+
+**Live URLs**
+
+- Frontend: [https://iem-admission-frontend.onrender.com](https://iem-admission-frontend.onrender.com)
+- Backend: [https://iem-admission-api.onrender.com](https://iem-admission-api.onrender.com)
+- Backend health check: [https://iem-admission-api.onrender.com/api/health](https://iem-admission-api.onrender.com/api/health)
+
+The frontend communicates with the backend through REST API requests. The backend connects to MongoDB Atlas for application data and Supabase Storage for document storage.
 
 ---
 
-## 4. Project Folder Structure
+## 3. System Architecture
 
-```
-iem-admission-system/
-├── client/                              # React Frontend
-│   ├── public/
-│   │   └── favicon.svg
-│   ├── src/
-│   │   ├── components/                  # Reusable UI components
-│   │   │   ├── Modal.jsx
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── ProgressTracker.jsx
-│   │   │   ├── ProtectedRoute.jsx
-│   │   │   ├── Sidebar.jsx
-│   │   │   └── StatusBadge.jsx
-│   │   ├── context/
-│   │   │   └── AuthContext.jsx          # Auth provider & session hook
-│   │   ├── layouts/
-│   │   │   ├── AdminLayout.jsx
-│   │   │   ├── MainLayout.jsx
-│   │   │   └── StudentLayout.jsx
-│   │   ├── pages/
-│   │   │   ├── admin/                   # Admin pages
-│   │   │   │   ├── AdminDashboard.jsx
-│   │   │   │   ├── ApplicantDetail.jsx
-│   │   │   │   ├── ApplicationsList.jsx
-│   │   │   │   ├── CounsellingAlloc.jsx
-│   │   │   │   ├── CourseManagement.jsx
-│   │   │   │   └── ExamManagement.jsx
-│   │   │   ├── public/                  # Public pages
-│   │   │   │   ├── LandingPage.jsx
-│   │   │   │   ├── LoginPage.jsx
-│   │   │   │   └── RegisterPage.jsx
-│   │   │   └── student/                 # Student pages
-│   │   │       ├── ApplicationForm.jsx
-│   │   │       ├── ApplicationView.jsx
-│   │   │       ├── CounsellingPage.jsx
-│   │   │       ├── DocumentUpload.jsx
-│   │   │       ├── ExamStatus.jsx
-│   │   │       ├── Notifications.jsx
-│   │   │       ├── PaymentPage.jsx
-│   │   │       └── StudentDashboard.jsx
-│   │   ├── services/
-│   │   │   └── api.js                   # Central API client
-│   │   ├── styles/
-│   │   │   └── index.css                # Global design system
-│   │   ├── App.jsx                      # Route definitions
-│   │   └── main.jsx
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-│
-├── server/                              # Express & Node Backend
-│   ├── config/
-│   │   └── db.js                        # Mongoose MongoDB connection
-│   ├── controllers/
-│   │   ├── adminController.js           # MongoDB Aggregations & search
-│   │   ├── applicationController.js     # Form management & state transitions
-│   │   ├── authController.js            # Register & Login
-│   │   ├── counsellingController.js     # Seat allocation logic
-│   │   ├── courseController.js          # Programs CRUD
-│   │   ├── documentController.js        # Multer disk upload & verification
-│   │   ├── examController.js            # Entrance exam schedules & ranks
-│   │   ├── notificationController.js    # In-app alerts
-│   │   └── paymentController.js         # Mock payment processing
-│   ├── middleware/
-│   │   ├── authMiddleware.js            # JWT guard
-│   │   ├── roleMiddleware.js            # Role-based authorization
-│   │   └── uploadMiddleware.js          # Multer storage configuration
-│   ├── models/
-│   │   ├── Application.js
-│   │   ├── Course.js
-│   │   ├── Document.js
-│   │   ├── Exam.js
-│   │   ├── Notification.js
-│   │   ├── Payment.js
-│   │   ├── SeatAllocation.js
-│   │   └── User.js
-│   ├── routes/
-│   │   ├── adminRoutes.js
-│   │   ├── applicationRoutes.js
-│   │   ├── authRoutes.js
-│   │   ├── counsellingRoutes.js
-│   │   ├── courseRoutes.js
-│   │   ├── documentRoutes.js
-│   │   ├── examRoutes.js
-│   │   ├── notificationRoutes.js
-│   │   └── paymentRoutes.js
-│   ├── seeds/
-│   │   └── seedData.js                  # Database seeder with demo viva data
-│   ├── uploads/                         # Local server document storage
-│   ├── .env
-│   ├── .env.example
-│   ├── package.json
-│   └── server.js
-│
-├── .gitignore
-└── README.md
+```text
+                APPLICANT / ADMIN
+                       |
+                       v
+                REACT FRONTEND
+              (Vite + React Router)
+                       |
+                       | HTTP / JSON /
+                       | Multipart FormData
+                       v
+                EXPRESS.JS API
+                 (Node.js Server)
+                       |
+          +------------+-------------+
+          |            |             |
+          v            v             v
+      MongoDB       Supabase       Authentication
+      Atlas         Storage        JWT + bcrypt
+   (Application    (Documents)    (Role-based
+       Data)                       Access)
 ```
 
 ---
 
-## 5. Quick Setup & Execution Guide
+## 4. Technology Stack
 
-### Prerequisites:
-- **Node.js** (v18 or higher recommended)
-- **MongoDB** running locally on `mongodb://localhost:27017` (or a MongoDB Atlas connection URI)
+### Frontend
 
-### Step 1: Install Backend Dependencies & Seed Sample Data
+- React 18
+- Vite
+- React Router v6
+- JavaScript (ES6+)
+- React Hooks: useState, useEffect, useContext
+- CSS (responsive layouts and custom design system)
+
+### Backend
+
+- Node.js
+- Express.js
+- Mongoose
+- JSON Web Tokens (JWT)
+- bcryptjs
+- Multer
+- CORS
+- dotenv
+
+### Database and Storage
+
+- MongoDB Atlas – application data and user records.
+- Supabase Storage – uploaded admission documents.
+
+### Deployment and Version Control
+
+- Render – frontend and backend hosting.
+- GitHub – source code and version control.
+
+---
+
+## 5. Project Folder Structure
+
+```text
+SWE-PROJECT/
+|
+|-- client/                         # React Frontend
+|   |-- public/
+|   |-- src/
+|   |   |-- components/             # Reusable UI components
+|   |   |-- context/                # Authentication context
+|   |   |-- layouts/                # Student/Admin layouts
+|   |   |-- pages/
+|   |   |   |-- admin/              # Admin dashboard and modules
+|   |   |   |-- public/             # Landing, login, registration
+|   |   |   |-- student/            # Student portal modules
+|   |   |-- services/               # API client
+|   |   |-- styles/                 # Global styles
+|   |   |-- App.jsx
+|   |   |-- main.jsx
+|   |-- index.html
+|   |-- package.json
+|   |-- vercel.json                 # SPA routing configuration
+|   |-- vite.config.js
+|
+|-- server/                         # Express Backend
+|   |-- config/                     # Database configuration
+|   |-- controllers/                # Application business logic
+|   |-- middleware/                 # Authentication and upload
+|   |-- models/                     # Mongoose schemas
+|   |-- routes/                     # REST API routes
+|   |-- seeds/                      # Database seed scripts
+|   |-- .env.example
+|   |-- package.json
+|   |-- server.js
+|
+|-- .gitignore
+|-- README.md
+```
+
+---
+
+## 6. Local Setup and Execution
+
+### Prerequisites
+
+- Node.js 20 or later recommended.
+- npm.
+- MongoDB Atlas account or local MongoDB installation.
+- Supabase project with a configured Storage bucket.
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/Swapnil-2004/SWE-PROJECT.git
+cd SWE-PROJECT
+```
+
+### Step 2: Configure Backend
+
 ```bash
 cd server
 npm install
-
-# Seed Admin account, courses, and sample applications across all workflow statuses
-npm run seed
 ```
 
-### Step 2: Start Backend Server
+Create a `.env` file inside the `server` directory using `.env.example` as a reference.
+
+Configure the following variables:
+
+```env
+NODE_ENV=development
+PORT=5000
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+CLIENT_URL=http://localhost:3000
+
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_BUCKET=your_supabase_bucket_name
+```
+
+Never commit the actual `.env` file or privileged credentials to GitHub.
+
+### Step 3: Start the Backend
+
 ```bash
-# In the server folder
 npm run dev
-# Express server runs on http://localhost:5000
 ```
 
-### Step 3: Install Frontend Dependencies & Start React App
-Open a second terminal window:
+The Express backend runs at:
+
+`http://localhost:5000`
+
+### Step 4: Configure and Start the Frontend
+
+Open another terminal:
+
 ```bash
 cd client
 npm install
+```
+
+Create a `.env` file inside `client`:
+
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+Start the React development server:
+
+```bash
 npm run dev
-# React Vite application runs on http://localhost:3000
 ```
+
+The frontend runs at the local development URL configured in `vite.config.js` (commonly `http://localhost:3000`).
 
 ---
 
-## 6. Demo Credentials for Viva / Presentation
+## 7. Environment Variables
 
-The database seed script initializes the following pre-configured test accounts:
+### Backend Environment
 
-| Role | Email | Password | Description |
-|---|---|---|---|
-| **Admin** | `admin@iem.edu` | `Admin@123` | Admissions Dean (Full admin privileges, analytics, verification) |
-| **Student 1** | `rohan.sharma@example.com` | `Student@123` | Application Status: **ALLOCATED** (Seat confirmed in B.Tech CSE) |
-| **Student 2** | `ananya.sen@example.com` | `Student@123` | Application Status: **APPROVED** (Eligible for counselling) |
-| **Student 3** | `arjun.m@example.com` | `Student@123` | Application Status: **DOCUMENT_VERIFICATION** (Awaiting doc check) |
-| **Student 4** | `pooja.das@example.com` | `Student@123` | Application Status: **SUBMITTED** (Queued for review) |
-| **Student 5** | `vikram.g@example.com` | `Student@123` | Application Status: **DRAFT** (Fresh application in-progress) |
+| Variable                  | Purpose                                  |
+| ------------------------- | ---------------------------------------- |
+| NODE_ENV                  | Application environment                  |
+| PORT                      | Backend server port                      |
+| MONGO_URI                 | MongoDB connection string                |
+| JWT_SECRET                | JWT signing secret                       |
+| CLIENT_URL                | Allowed frontend origin for CORS         |
+| SUPABASE_URL              | Supabase project URL                     |
+| SUPABASE_SERVICE_ROLE_KEY | Private Supabase service-role credential |
+| SUPABASE_BUCKET           | Document storage bucket                  |
 
-> ⚡ **Viva Shortcut**: On the Login page (`/login`), click the **"Fill Student"** or **"Fill Admin"** buttons to auto-populate credentials instantly.
+### Frontend Environment
+
+| Variable     | Purpose                          |
+| ------------ | -------------------------------- |
+| VITE_API_URL | Base URL of the backend REST API |
+
+**Security:** Never expose `JWT_SECRET`, `MONGO_URI`, or `SUPABASE_SERVICE_ROLE_KEY` in frontend code, public repositories, or screenshots.
 
 ---
 
-## 7. Core Software Engineering Concepts Demonstrated
+## 8. Database Initialization and Administrator Setup
 
-### 1. Request-Response Lifecycle
-Every user action flows through the complete MERN lifecycle:
-`React Component` ➔ `Fetch API Call (JWT Header)` ➔ `Express Router` ➔ `Authentication & Role Middleware` ➔ `Controller Business Logic` ➔ `Mongoose Model & MongoDB Operation` ➔ `JSON Response` ➔ `React State Re-render`.
+The project includes seed scripts for initializing sample data and creating an administrator account.
 
-### 2. Document Uploads & Metadata Storage
-- Handled via `Multer` middleware.
-- Scanned marksheets/photos are saved to the server's local disk directory (`server/uploads/`).
-- **MongoDB stores only document metadata and relative file paths** (`filePath: "/uploads/filename.pdf"`, `verificationStatus`, `fileSize`, `originalFileName`), adhering strictly to academic constraints.
+For administrator creation, configure the following environment variables before running the existing administrator seed script:
 
-### 3. Server-Enforced Status Workflow State Machine
-The server rejects arbitrary status modifications. Only predefined, valid status transitions are permitted:
+```env
+ADMIN_NAME=Your Administrator Name
+ADMIN_EMAIL=your_admin_email@example.com
+ADMIN_PASSWORD=your_secure_password
+ADMIN_PHONE=your_phone_number
 ```
-DRAFT ➔ SUBMITTED ➔ UNDER_REVIEW ➔ DOCUMENT_VERIFICATION ➔ APPROVED / REJECTED ➔ COUNSELLING ➔ ALLOCATED
-```
-If an invalid transition is attempted (e.g. `DRAFT` directly to `APPROVED`), the backend responds with HTTP 400 Bad Request.
 
-### 4. MongoDB Aggregation Pipelines
-The Admin Dashboard statistics are computed directly inside MongoDB using `$group`, `$match`, and `$sort` rather than manual client-side computation:
+Run the administrator seed script from the `server` directory:
+
+```bash
+node seeds/createAdmin.js
+```
+
+Use a unique, secure password. Do not publish real administrator credentials in this repository.
+
+The project may also include sample courses and application records for academic demonstration. Follow the seed script configuration in the repository before initializing a database.
+
+---
+
+## 9. Core Software Engineering Concepts Demonstrated
+
+### 9.1 Request-Response Lifecycle
+
+The application follows the complete MERN request-response lifecycle:
+
+React Component → API Request → Express Router → Authentication Middleware → Controller → Mongoose Model → MongoDB → JSON Response → React State Update.
+
+### 9.2 Document Upload and Storage
+
+- Multer handles incoming multipart file uploads.
+- Uploaded documents are stored in Supabase Storage.
+- MongoDB stores document metadata and storage references.
+- Private document access can be provided through signed URLs.
+- Document verification status and administrator remarks are maintained in the database.
+
+### 9.3 Server-Enforced Application Workflow
+
+The backend enforces predefined application status transitions rather than allowing arbitrary client-side status modifications.
+
+Example workflow:
+
+```text
+DRAFT
+  |
+  v
+SUBMITTED
+  |
+  v
+UNDER_REVIEW
+  |
+  v
+DOCUMENT_VERIFICATION
+  |
+  +------> REJECTED
+  |
+  v
+APPROVED
+  |
+  v
+COUNSELLING
+  |
+  v
+ALLOCATED
+```
+
+Invalid transitions are rejected by the backend with appropriate HTTP error responses.
+
+### 9.4 MongoDB Aggregation Pipelines
+
+The administrator dashboard uses MongoDB aggregation operations such as `$match`, `$group`, and `$sort` to generate application statistics and distributions.
+
+Example:
+
 ```javascript
-// Example: Grouping applications by department
 const departmentDistribution = await Application.aggregate([
-  { $match: { 'courseSelection.department': { $exists: true, $ne: '' } } },
-  { $group: { _id: '$courseSelection.department', count: { $sum: 1 } } },
-  { $sort: { count: -1 } }
+  {
+    $match: {
+      'courseSelection.department': {
+        $exists: true,
+        $ne: ''
+      }
+    }
+  },
+  {
+    $group: {
+      _id: '$courseSelection.department',
+      count: { $sum: 1 }
+    }
+  },
+  {
+    $sort: { count: -1 }
+  }
 ]);
 ```
 
-### 5. Role-Based Access Control (RBAC)
-- Client routes are guarded via `<ProtectedRoute allowedRoles={['student' | 'admin']} />`.
-- Server routes strictly enforce authorization via `protect` and `authorize('admin')` middleware.
+### 9.5 Role-Based Access Control
+
+- JWT-based authentication identifies logged-in users.
+- Protected frontend routes restrict access based on user roles.
+- Backend middleware validates authentication and authorization.
+- Administrative operations are restricted to authorized administrator accounts.
 
 ---
 
-## 8. REST API Endpoints Overview
+## 10. REST API Overview
 
-### Authentication (`/api/auth`)
-- `POST /api/auth/register` — Register new student
-- `POST /api/auth/login` — Login user (Student or Admin)
-- `GET /api/auth/me` — Fetch current user profile
+### Authentication – `/api/auth`
 
-### Applications (`/api/applications`)
-- `GET /api/applications/me` — Fetch current student's application
-- `POST /api/applications/draft` — Save application draft
-- `POST /api/applications/:id/submit` — Submit application (validates fields & payment)
-- `GET /api/applications/:id` — Get single application details
+| Method | Endpoint    | Description                         |
+| ------ | ----------- | ----------------------------------- |
+| POST   | `/register` | Register a student                  |
+| POST   | `/login`    | Authenticate a user                 |
+| GET    | `/me`       | Retrieve authenticated user profile |
 
-### Admin Management (`/api/admin`)
-- `GET /api/admin/dashboard` — Aggregated metrics & distributions
-- `GET /api/admin/applications` — Search & filter all applications
-- `PUT /api/admin/applications/:id/status` — Update application status
+### Applications – `/api/applications`
 
-### Documents (`/api/documents`)
-- `POST /api/documents/upload` — Upload file via Multer
-- `GET /api/documents/application/:applicationId` — List documents for application
-- `DELETE /api/documents/:id` — Delete uploaded document
-- `PUT /api/documents/:id/verify` — Admin document verification (VERIFIED / REJECTED)
+| Method | Endpoint      | Description                       |
+| ------ | ------------- | --------------------------------- |
+| GET    | `/me`         | Get current student's application |
+| POST   | `/draft`      | Save application draft            |
+| POST   | `/:id/submit` | Submit an application             |
+| GET    | `/:id`        | Retrieve application details      |
 
-### Payments, Courses, Exams & Counselling
-- `POST /api/payments/mock` — Execute simulated ₹500 fee transaction
-- `GET /api/courses` — List active IEM academic programs
-- `GET /api/exams/me` — Student entrance exam hall ticket & score card
-- `POST /api/admin/exams` — Admin score & rank entry
-- `GET /api/counselling/me` — Student provisional seat allotment letter
-- `POST /api/admin/counselling/allocate` — Admin seat allocation
-- `GET /api/notifications` — In-app notification alerts
+### Administration – `/api/admin`
+
+| Method | Endpoint                   | Description                    |
+| ------ | -------------------------- | ------------------------------ |
+| GET    | `/dashboard`               | Retrieve dashboard analytics   |
+| GET    | `/applications`            | Search and filter applications |
+| PUT    | `/applications/:id/status` | Update application status      |
+| POST   | `/exams`                   | Manage examination scores      |
+
+### Documents – `/api/documents`
+
+| Method | Endpoint                      | Description                  |
+| ------ | ----------------------------- | ---------------------------- |
+| POST   | `/upload`                     | Upload an admission document |
+| GET    | `/application/:applicationId` | List application documents   |
+| DELETE | `/:id`                        | Delete an uploaded document  |
+| PUT    | `/:id/verify`                 | Verify or reject a document  |
+
+### Other Modules
+
+- Payments: `/api/payments`
+- Courses: `/api/courses`
+- Examinations: `/api/exams`
+- Counselling: `/api/counselling`
+- Notifications: `/api/notifications`
+
+Refer to the backend route files for the complete endpoint definitions and request parameters.
 
 ---
 
-## 9. Authors & Acknowledgements
+## 11. Demonstration Notes
 
-- **Course**: Software Engineering Laboratory
-- **Authors**: Arkajit , Swapnil , Sayan , Ritasmit
-- **Institute**: Institute of Engineering & Management (IEM), Kolkata
-- **Stack**: MongoDB, Express.js, React, Node.js (MERN)
+This is an academic software engineering project and includes simulated admission workflows.
+
+- Application fee payments are mock transactions, not actual financial payments.
+- Course capacities, fees, and sample application records may contain demonstration data.
+- Sample course and seat information should not be interpreted as official IEM admission information.
+- Administrator access is managed through the database initialization process; real credentials are not included in this README.
+
+---
+
+## 12. Authors and Acknowledgements
+
+**Course:** Software Engineering Laboratory
+
+**Authors:**
+
+- Arkajit Bhattachary
+- Swapnil Chakraborty
+- Sayan Das
+- Ritasmit Sarkar
+
+**Institute:** Institute of Engineering & Management (IEM), Kolkata
+
+**Technology Stack:** MongoDB, Express.js, React, Node.js (MERN)
+
+---
+
+*Developed as an academic full-stack software engineering project.*
