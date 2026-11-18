@@ -32,6 +32,46 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
   const savedUserStr = localStorage.getItem('iem_user');
   const user = savedUserStr ? JSON.parse(savedUserStr) : DEMO_ADMIN_USER;
 
+  // 0. AUTHENTICATION & LOGIN HANDLERS
+  if (endpoint.startsWith('/auth/admin-login') && method === 'POST') {
+    return {
+      success: true,
+      message: 'Dean / Admin login successful',
+      token: 'demo-admin-token-iem-dean',
+      user: DEMO_ADMIN_USER
+    };
+  }
+
+  if (endpoint.startsWith('/auth/login') && method === 'POST') {
+    const email = parsedBody?.email?.toLowerCase();
+    if (email === 'admin@iem.edu' || email === 'dean@iem.edu') {
+      return {
+        success: true,
+        message: 'Admin login successful',
+        token: 'demo-admin-token-iem-dean',
+        user: DEMO_ADMIN_USER
+      };
+    }
+    const regUsers = getRegisteredUsers();
+    const foundUser = regUsers.find((u) => u.email?.toLowerCase() === email);
+    if (foundUser) {
+      return {
+        success: true,
+        message: 'Login successful',
+        token: 'token-usr-' + (foundUser.id || foundUser._id || Date.now()),
+        user: foundUser
+      };
+    }
+    if (email === 'rohan.sharma@example.com' || email === 'student@example.com') {
+      return {
+        success: true,
+        message: 'Student login successful',
+        token: 'demo-student-token-rohan',
+        user: DEMO_STUDENT_USER
+      };
+    }
+  }
+
   // 1. COURSES & SEAT AVAILABILITY
   if (endpoint.startsWith('/courses')) {
     if (method === 'PUT') {
@@ -59,24 +99,9 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     return {
       success: true,
       application: app,
-      documents: app?.documents || [
-        {
-          _id: 'doc-01',
-          documentType: '10th_Marksheet',
-          originalFileName: 'class10_marksheet.pdf',
-          fileSize: '1.2 MB',
-          verificationStatus: 'PENDING'
-        },
-        {
-          _id: 'doc-02',
-          documentType: '12th_Marksheet',
-          originalFileName: 'class12_marksheet.pdf',
-          fileSize: '1.4 MB',
-          verificationStatus: 'PENDING'
-        }
-      ],
+      documents: (app?.documents && app.documents.length > 0) ? app.documents : [],
       payment: {
-        paymentStatus: app?.paymentStatus || 'PAID',
+        paymentStatus: app?.paymentStatus || 'PENDING',
         amount: 500
       }
     };
@@ -136,28 +161,13 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
       return {
         success: true,
         application: found,
-        documents: found.documents?.length > 0 ? found.documents : [
-          {
-            _id: 'doc-01',
-            documentType: '10th_Marksheet',
-            originalFileName: `${found.personalInfo?.fullName || 'student'}_class10.pdf`,
-            fileSize: '1.2 MB',
-            verificationStatus: 'PENDING'
-          },
-          {
-            _id: 'doc-02',
-            documentType: '12th_Marksheet',
-            originalFileName: `${found.personalInfo?.fullName || 'student'}_class12.pdf`,
-            fileSize: '1.4 MB',
-            verificationStatus: 'PENDING'
-          }
-        ],
+        documents: (found.documents && found.documents.length > 0) ? found.documents : [],
         payments: [
           {
             _id: 'pay-01',
             amount: 500,
-            paymentStatus: found.paymentStatus || 'PAID',
-            transactionId: 'TXN-IEM-2026-' + (found.applicationNumber || 'DEMO'),
+            paymentStatus: found.paymentStatus || 'PENDING',
+            transactionId: found.paymentStatus === 'PAID' ? 'TXN-IEM-2026-' + (found.applicationNumber || 'DEMO') : '',
             paymentMethod: 'UPI / NetBanking'
           }
         ]
@@ -274,7 +284,7 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     };
   }
 
-  // 9. DOCUMENT UPLOAD
+  // 9. DOCUMENT UPLOAD & DELETE
   if (endpoint === '/documents/upload' && method === 'POST') {
     const apps = getStoredApplications();
     const app = getApplicationForUser(user);
@@ -294,6 +304,20 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     return {
       success: true,
       message: 'Document uploaded successfully'
+    };
+  }
+
+  if (endpoint.startsWith('/documents/') && method === 'DELETE') {
+    const docId = endpoint.split('/')[2];
+    const apps = getStoredApplications();
+    const app = getApplicationForUser(user);
+    if (app && app.documents) {
+      app.documents = app.documents.filter((d) => d._id !== docId);
+      saveStoredApplications(apps);
+    }
+    return {
+      success: true,
+      message: 'Document deleted successfully'
     };
   }
 
@@ -324,8 +348,8 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
       payment: {
         _id: 'pay-01',
         amount: 500,
-        paymentStatus: app?.paymentStatus || 'PAID',
-        transactionId: 'TXN-IEM-2026-ONLINE',
+        paymentStatus: app?.paymentStatus || 'PENDING',
+        transactionId: app?.paymentStatus === 'PAID' ? 'TXN-IEM-2026-ONLINE' : '',
         paymentMethod: 'UPI'
       }
     };

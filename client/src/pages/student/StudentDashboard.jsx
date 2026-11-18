@@ -16,16 +16,21 @@ const StudentDashboard = () => {
     const fetchDashboard = async () => {
       try {
         const appRes = await api.get('/applications/me');
-        if (appRes.success) {
+        if (appRes && appRes.success) {
           setData(appRes);
         }
+      } catch (err) {
+        console.warn('Could not load application dossier:', err);
+        setError('Failed to load dashboard details');
+      }
 
+      try {
         const notifRes = await api.get('/notifications');
-        if (notifRes.success) {
+        if (notifRes && notifRes.success && notifRes.notifications) {
           setNotifications(notifRes.notifications.slice(0, 4));
         }
       } catch (err) {
-        setError('Failed to load dashboard details');
+        console.warn('Could not load notifications:', err);
       } finally {
         setLoading(false);
       }
@@ -112,8 +117,8 @@ const StudentDashboard = () => {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
               <span style={{ fontSize: '1.5rem' }}>📝</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: '600', color: app?.academicInfo?.tenthPercentage ? 'var(--success)' : 'var(--warning)' }}>
-                {app?.academicInfo?.tenthPercentage ? '✓ Details Entered' : 'Pending Info'}
+              <span style={{ fontSize: '0.8rem', fontWeight: '600', color: (app?.status !== 'DRAFT' && app?.academicInfo?.tenthPercentage) ? 'var(--success)' : 'var(--warning)' }}>
+                {app?.status !== 'DRAFT' && app?.academicInfo?.tenthPercentage ? '✓ Details Entered' : 'Pending Info'}
               </span>
             </div>
             <h4 style={{ fontSize: '1.05rem', fontWeight: '700', marginBottom: '0.35rem' }}>Application Form</h4>
@@ -122,7 +127,7 @@ const StudentDashboard = () => {
             </p>
           </div>
           <Link to="/student/application" className="btn btn-outline-primary btn-sm">
-            {app?.status === 'DRAFT' || app?.status === 'REJECTED' ? 'Continue Form →' : 'View Form Details →'}
+            {app?.status === 'DRAFT' || app?.status === 'REJECTED' ? 'Complete Form →' : 'View Form Details →'}
           </Link>
         </div>
 
@@ -141,7 +146,7 @@ const StudentDashboard = () => {
             </p>
           </div>
           <Link to="/student/documents" className="btn btn-outline-primary btn-sm">
-            Manage Documents →
+            {docs.length === 0 ? 'Upload Documents →' : 'Manage Documents →'}
           </Link>
         </div>
 
@@ -157,7 +162,7 @@ const StudentDashboard = () => {
                   color: app?.paymentStatus === 'PAID' ? 'var(--success)' : 'var(--danger)'
                 }}
               >
-                {app?.paymentStatus === 'PAID' ? '✓ ₹500 PAID' : '₹500 UNPAID'}
+                {app?.paymentStatus === 'PAID' ? '✓ ₹500 PAID' : '₹500 PENDING'}
               </span>
             </div>
             <h4 style={{ fontSize: '1.05rem', fontWeight: '700', marginBottom: '0.35rem' }}>Application Fee</h4>

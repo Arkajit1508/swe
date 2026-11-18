@@ -89,75 +89,6 @@ export const INITIAL_COURSES = [
 
 export const INITIAL_APPLICATIONS = [
   {
-    _id: 'app-arkajit-bhattacharya-1000',
-    applicationNumber: 'IEM-2026-1000',
-    applicant: {
-      _id: 'usr-arkajit-bhattacharya',
-      name: 'Arkajit Bhattacharya',
-      email: 'arkajit.bhattacharya@iem.edu',
-      phone: '9876543210'
-    },
-    personalInfo: {
-      fullName: 'Arkajit Bhattacharya',
-      dateOfBirth: '2005-01-15',
-      gender: 'Male',
-      category: 'General',
-      nationality: 'Indian',
-      bloodGroup: 'B+',
-      guardianName: 'Guardian',
-      guardianPhone: '9830112233'
-    },
-    contactInfo: {
-      email: 'arkajit.bhattacharya@iem.edu',
-      phone: '9876543210',
-      addressLine: 'Sector V, Salt Lake',
-      city: 'Kolkata',
-      state: 'West Bengal',
-      pinCode: '700091'
-    },
-    academicInfo: {
-      tenthBoard: 'CBSE',
-      tenthSchool: 'Delhi Public School',
-      tenthYear: 2022,
-      tenthPercentage: 92.5,
-      twelfthBoard: 'CBSE',
-      twelfthSchool: 'Delhi Public School',
-      twelfthYear: 2024,
-      twelfthPercentage: 89.4,
-      stream: 'Science (PCM)'
-    },
-    courseSelection: {
-      department: 'Computer Science & Engineering',
-      program: 'B.Tech Computer Science & Engineering',
-      courseId: '6af306abd66f6850c18c2ca4'
-    },
-    examInfo: {
-      examName: 'IEMJEE 2026',
-      rollNumber: 'IEMJEE-2026-1000',
-      rankOrScore: 98
-    },
-    status: 'SUBMITTED',
-    paymentStatus: 'PAID',
-    documents: [
-      {
-        _id: 'doc-arkajit-01',
-        documentType: '10th_Marksheet',
-        originalFileName: 'arkajit_class10.pdf',
-        fileSize: '1.2 MB',
-        verificationStatus: 'PENDING'
-      },
-      {
-        _id: 'doc-arkajit-02',
-        documentType: '12th_Marksheet',
-        originalFileName: 'arkajit_class12.pdf',
-        fileSize: '1.4 MB',
-        verificationStatus: 'PENDING'
-      }
-    ],
-    createdAt: new Date().toISOString(),
-    submittedAt: new Date().toISOString()
-  },
-  {
     _id: 'app-rohan-1001',
     applicationNumber: 'IEM-2026-1001',
     applicant: {
@@ -260,6 +191,22 @@ export const INITIAL_APPLICATIONS = [
     },
     status: 'APPROVED',
     paymentStatus: 'PAID',
+    documents: [
+      {
+        _id: 'doc-ananya-01',
+        documentType: '10th_Marksheet',
+        originalFileName: 'ananya_class10.pdf',
+        fileSize: '1.2 MB',
+        verificationStatus: 'VERIFIED'
+      },
+      {
+        _id: 'doc-ananya-02',
+        documentType: '12th_Marksheet',
+        originalFileName: 'ananya_class12.pdf',
+        fileSize: '1.4 MB',
+        verificationStatus: 'VERIFIED'
+      }
+    ],
     createdAt: new Date(Date.now() - 6 * 86400000).toISOString(),
     submittedAt: new Date(Date.now() - 6 * 86400000).toISOString()
   },
@@ -307,6 +254,22 @@ export const INITIAL_APPLICATIONS = [
     },
     status: 'DOCUMENT_VERIFICATION',
     paymentStatus: 'PAID',
+    documents: [
+      {
+        _id: 'doc-arjun-01',
+        documentType: '10th_Marksheet',
+        originalFileName: 'arjun_class10.pdf',
+        fileSize: '1.2 MB',
+        verificationStatus: 'PENDING'
+      },
+      {
+        _id: 'doc-arjun-02',
+        documentType: '12th_Marksheet',
+        originalFileName: 'arjun_class12.pdf',
+        fileSize: '1.4 MB',
+        verificationStatus: 'PENDING'
+      }
+    ],
     createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
     submittedAt: new Date(Date.now() - 3 * 86400000).toISOString()
   },
@@ -352,6 +315,22 @@ export const INITIAL_APPLICATIONS = [
     },
     status: 'SUBMITTED',
     paymentStatus: 'PAID',
+    documents: [
+      {
+        _id: 'doc-pooja-01',
+        documentType: '10th_Marksheet',
+        originalFileName: 'pooja_class10.pdf',
+        fileSize: '1.1 MB',
+        verificationStatus: 'PENDING'
+      },
+      {
+        _id: 'doc-pooja-02',
+        documentType: '12th_Marksheet',
+        originalFileName: 'pooja_class12.pdf',
+        fileSize: '1.3 MB',
+        verificationStatus: 'PENDING'
+      }
+    ],
     createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
     submittedAt: new Date(Date.now() - 1 * 86400000).toISOString()
   },
@@ -551,7 +530,7 @@ export const createApplicationForRegisteredUser = (user) => {
     return existing;
   }
 
-  // Create new applicant dossier record
+  // Create new applicant dossier record in pristine DRAFT state
   const appNo = 'IEM-2026-' + Math.floor(1000 + Math.random() * 9000);
   const newApp = {
     _id: 'app-' + (user.id || user._id || Date.now()),
@@ -560,74 +539,56 @@ export const createApplicationForRegisteredUser = (user) => {
       _id: user.id || user._id || ('usr-' + Date.now()),
       name: user.name || 'Applicant',
       email: user.email || '',
-      phone: user.phone || '9876543210'
+      phone: user.phone || ''
     },
     personalInfo: {
       fullName: user.name || 'Applicant',
-      dateOfBirth: user.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '2005-01-15',
-      gender: 'Male',
-      category: 'General',
+      dateOfBirth: user.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '',
+      gender: user.gender || 'Male',
+      category: user.category || 'General',
       nationality: 'Indian',
-      bloodGroup: 'B+',
-      guardianName: 'Parent / Guardian',
-      guardianPhone: '9830112233'
+      bloodGroup: user.bloodGroup || '',
+      guardianName: '',
+      guardianPhone: ''
     },
     contactInfo: {
       email: user.email || '',
-      phone: user.phone || '9876543210',
-      addressLine: 'Sector V, Salt Lake',
-      city: 'Kolkata',
-      state: 'West Bengal',
-      pinCode: '700091'
+      phone: user.phone || '',
+      addressLine: '',
+      city: '',
+      state: '',
+      pinCode: ''
     },
     academicInfo: {
-      tenthBoard: 'CBSE',
-      tenthSchool: 'Delhi Public School',
-      tenthYear: 2022,
-      tenthPercentage: 92.5,
-      twelfthBoard: 'CBSE',
-      twelfthSchool: 'Delhi Public School',
-      twelfthYear: 2024,
-      twelfthPercentage: 89.4,
-      stream: 'Science (PCM)'
+      tenthBoard: '',
+      tenthSchool: '',
+      tenthYear: '',
+      tenthPercentage: '',
+      twelfthBoard: '',
+      twelfthSchool: '',
+      twelfthYear: '',
+      twelfthPercentage: '',
+      stream: ''
     },
     courseSelection: {
-      department: 'Computer Science & Engineering',
-      program: 'B.Tech Computer Science & Engineering',
-      courseId: '6af306abd66f6850c18c2ca4'
+      department: '',
+      program: '',
+      courseId: ''
     },
     examInfo: {
-      examName: 'IEMJEE 2026',
-      rollNumber: 'IEMJEE-2026-' + Math.floor(10000 + Math.random() * 90000),
-      rankOrScore: 98
+      examName: 'IEMJEE',
+      rollNumber: '',
+      rankOrScore: ''
     },
-    status: 'SUBMITTED',
-    paymentStatus: 'PAID',
-    documents: [
-      {
-        _id: 'doc-' + Date.now() + '-1',
-        documentType: '10th_Marksheet',
-        originalFileName: (user.name || 'applicant').toLowerCase().replace(/\s+/g, '_') + '_class10.pdf',
-        fileSize: '1.2 MB',
-        verificationStatus: 'PENDING'
-      },
-      {
-        _id: 'doc-' + Date.now() + '-2',
-        documentType: '12th_Marksheet',
-        originalFileName: (user.name || 'applicant').toLowerCase().replace(/\s+/g, '_') + '_class12.pdf',
-        fileSize: '1.4 MB',
-        verificationStatus: 'PENDING'
-      }
-    ],
-    createdAt: new Date().toISOString(),
-    submittedAt: new Date().toISOString()
+    status: 'DRAFT',
+    paymentStatus: 'PENDING',
+    documents: [],
+    submittedByUser: false,
+    createdAt: new Date().toISOString()
   };
 
   apps.unshift(newApp);
   saveStoredApplications(apps);
-
-  // Automatically decrement course seat for the chosen program
-  decrementCourseSeat('B.Tech Computer Science & Engineering');
 
   return newApp;
 };
@@ -648,118 +609,16 @@ export const getStoredApplications = () => {
     apps = [...INITIAL_APPLICATIONS];
   }
 
-  // 1. Ensure Arkajit Bhattacharya is explicitly present
-  const arkajitApp = apps.find(
-    (a) =>
-      a.applicant?.name?.toLowerCase().includes('arkajit') ||
-      a.personalInfo?.fullName?.toLowerCase().includes('arkajit') ||
-      a.contactInfo?.email?.toLowerCase().includes('arkajit')
-  );
-
-  const currentUserRaw = localStorage.getItem('iem_user');
-  let currentUser = null;
-  if (currentUserRaw) {
-    try {
-      currentUser = JSON.parse(currentUserRaw);
-    } catch {}
-  }
-
-  if (arkajitApp) {
-    arkajitApp.applicant.name = 'Arkajit Bhattacharya';
-    arkajitApp.personalInfo.fullName = 'Arkajit Bhattacharya';
-    if (!arkajitApp.status || arkajitApp.status === 'DRAFT') {
-      arkajitApp.status = 'SUBMITTED';
-    }
-    arkajitApp.paymentStatus = 'PAID';
-    if (!arkajitApp.courseSelection?.program) {
-      arkajitApp.courseSelection = {
-        department: 'Computer Science & Engineering',
-        program: 'B.Tech Computer Science & Engineering',
-        courseId: '6af306abd66f6850c18c2ca4'
-      };
-    }
-  } else {
-    apps.unshift({
-      _id: 'app-arkajit-bhattacharya-1000',
-      applicationNumber: 'IEM-2026-1000',
-      applicant: {
-        _id: 'usr-arkajit-bhattacharya',
-        name: 'Arkajit Bhattacharya',
-        email: currentUser?.name?.toLowerCase().includes('arkajit') ? currentUser.email : 'arkajit.bhattacharya@iem.edu',
-        phone: currentUser?.phone || '9876543210'
-      },
-      personalInfo: {
-        fullName: 'Arkajit Bhattacharya',
-        dateOfBirth: currentUser?.dateOfBirth ? String(currentUser.dateOfBirth).slice(0, 10) : '2005-01-15',
-        gender: 'Male',
-        category: 'General',
-        nationality: 'Indian',
-        bloodGroup: 'B+',
-        guardianName: 'Guardian',
-        guardianPhone: '9830112233'
-      },
-      contactInfo: {
-        email: currentUser?.name?.toLowerCase().includes('arkajit') ? currentUser.email : 'arkajit.bhattacharya@iem.edu',
-        phone: currentUser?.phone || '9876543210',
-        addressLine: 'Sector V, Salt Lake',
-        city: 'Kolkata',
-        state: 'West Bengal',
-        pinCode: '700091'
-      },
-      academicInfo: {
-        tenthBoard: 'CBSE',
-        tenthSchool: 'Delhi Public School',
-        tenthYear: 2022,
-        tenthPercentage: 92.5,
-        twelfthBoard: 'CBSE',
-        twelfthSchool: 'Delhi Public School',
-        twelfthYear: 2024,
-        twelfthPercentage: 89.4,
-        stream: 'Science (PCM)'
-      },
-      courseSelection: {
-        department: 'Computer Science & Engineering',
-        program: 'B.Tech Computer Science & Engineering',
-        courseId: '6af306abd66f6850c18c2ca4'
-      },
-      examInfo: {
-        examName: 'IEMJEE 2026',
-        rollNumber: 'IEMJEE-2026-1000',
-        rankOrScore: 98
-      },
-      status: 'SUBMITTED',
-      paymentStatus: 'PAID',
-      documents: [
-        {
-          _id: 'doc-arkajit-01',
-          documentType: '10th_Marksheet',
-          originalFileName: 'arkajit_class10.pdf',
-          fileSize: '1.2 MB',
-          verificationStatus: 'PENDING'
-        },
-        {
-          _id: 'doc-arkajit-02',
-          documentType: '12th_Marksheet',
-          originalFileName: 'arkajit_class12.pdf',
-          fileSize: '1.4 MB',
-          verificationStatus: 'PENDING'
-        }
-      ],
-      createdAt: new Date().toISOString(),
-      submittedAt: new Date().toISOString()
-    });
-  }
-
-  // 2. Sync all registered users from iem_registered_users into the application list
+  // 1. Sync all registered users from iem_registered_users into the application list as clean DRAFT applications
   const registeredUsers = getRegisteredUsers();
   registeredUsers.forEach((user) => {
     const exists = apps.some(
       (a) =>
         (a.applicant?._id && String(a.applicant._id) === String(user.id || user._id)) ||
-        (a.applicant?.email && a.applicant.email.toLowerCase() === user.email?.toLowerCase()) ||
-        (a.contactInfo?.email && a.contactInfo.email.toLowerCase() === user.email?.toLowerCase()) ||
-        (a.applicant?.name && a.applicant.name.toLowerCase() === user.name?.toLowerCase()) ||
-        (a.personalInfo?.fullName && a.personalInfo.fullName.toLowerCase() === user.name?.toLowerCase())
+        (a.applicant?.email && user.email && a.applicant.email.toLowerCase() === user.email.toLowerCase()) ||
+        (a.contactInfo?.email && user.email && a.contactInfo.email.toLowerCase() === user.email.toLowerCase()) ||
+        (a.applicant?.name && user.name && a.applicant.name.toLowerCase() === user.name.toLowerCase()) ||
+        (a.personalInfo?.fullName && user.name && a.personalInfo.fullName.toLowerCase() === user.name.toLowerCase())
     );
     if (!exists) {
       apps.unshift({
@@ -769,55 +628,104 @@ export const getStoredApplications = () => {
           _id: user.id || user._id,
           name: user.name,
           email: user.email,
-          phone: user.phone || '9876543210'
+          phone: user.phone || ''
         },
         personalInfo: {
           fullName: user.name,
-          dateOfBirth: user.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '2005-01-15',
+          dateOfBirth: user.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '',
           gender: 'Male',
           category: 'General',
-          nationality: 'Indian'
+          nationality: 'Indian',
+          bloodGroup: '',
+          guardianName: '',
+          guardianPhone: ''
         },
         contactInfo: {
           email: user.email,
-          phone: user.phone || '9876543210',
-          addressLine: 'Salt Lake',
-          city: 'Kolkata',
-          state: 'West Bengal',
-          pinCode: '700091'
+          phone: user.phone || '',
+          addressLine: '',
+          city: '',
+          state: '',
+          pinCode: ''
         },
         academicInfo: {
-          tenthBoard: 'CBSE',
-          tenthSchool: 'High School',
-          tenthYear: 2022,
-          tenthPercentage: 88.0,
-          twelfthBoard: 'CBSE',
-          twelfthSchool: 'High School',
-          twelfthYear: 2024,
-          twelfthPercentage: 86.5,
-          stream: 'Science (PCM)'
+          tenthBoard: '',
+          tenthSchool: '',
+          tenthYear: '',
+          tenthPercentage: '',
+          twelfthBoard: '',
+          twelfthSchool: '',
+          twelfthYear: '',
+          twelfthPercentage: '',
+          stream: ''
         },
         courseSelection: {
-          department: 'Computer Science & Engineering',
-          program: 'B.Tech Computer Science & Engineering',
-          courseId: '6af306abd66f6850c18c2ca4'
+          department: '',
+          program: '',
+          courseId: ''
         },
-        status: 'SUBMITTED',
-        paymentStatus: 'PAID',
+        examInfo: {
+          examName: 'IEMJEE',
+          rollNumber: '',
+          rankOrScore: ''
+        },
+        status: 'DRAFT',
+        paymentStatus: 'PENDING',
         documents: [],
-        createdAt: user.registeredAt || new Date().toISOString(),
-        submittedAt: new Date().toISOString()
+        submittedByUser: false,
+        createdAt: user.registeredAt || new Date().toISOString()
       });
+    }
+  });
+
+  // 2. Data migration & sanitizer: Reset any legacy pre-filled/fake mock data for registered users who haven't explicitly submitted
+  apps.forEach((a) => {
+    const isInitialDemoApplicant =
+      a.applicationNumber === 'IEM-2026-1001' ||
+      a.applicationNumber === 'IEM-2026-1002' ||
+      a.applicationNumber === 'IEM-2026-1003' ||
+      a.applicationNumber === 'IEM-2026-1004' ||
+      a.applicationNumber === 'IEM-2026-1005';
+
+    if (!isInitialDemoApplicant && !a.submittedByUser) {
+      if (
+        a.academicInfo?.tenthSchool === 'Delhi Public School' ||
+        a.academicInfo?.tenthSchool === 'High School' ||
+        a.academicInfo?.tenthPercentage === 92.5 ||
+        a.academicInfo?.tenthPercentage === 88.0 ||
+        a.documents?.some((d) => d.originalFileName?.includes('arkajit_class'))
+      ) {
+        a.status = 'DRAFT';
+        a.paymentStatus = 'PENDING';
+        a.documents = [];
+        a.academicInfo = {
+          tenthBoard: '',
+          tenthSchool: '',
+          tenthYear: '',
+          tenthPercentage: '',
+          twelfthBoard: '',
+          twelfthSchool: '',
+          twelfthYear: '',
+          twelfthPercentage: '',
+          stream: ''
+        };
+        a.courseSelection = {
+          department: '',
+          program: '',
+          courseId: ''
+        };
+        a.examInfo = {
+          examName: 'IEMJEE',
+          rollNumber: '',
+          rankOrScore: ''
+        };
+      }
     }
   });
 
   // 3. Ensure all base initial applications are preserved
   INITIAL_APPLICATIONS.forEach((baseApp) => {
-    const exists = apps.some(
-      (a) =>
-        a.applicationNumber === baseApp.applicationNumber ||
-        (a.applicant?.name && a.applicant.name.toLowerCase() === baseApp.applicant?.name?.toLowerCase())
-    );
+    const exists = apps.some((a) => a.applicationNumber === baseApp.applicationNumber);
     if (!exists) {
       apps.push(baseApp);
     }
@@ -835,17 +743,6 @@ export const saveStoredApplications = (apps) => {
 export const getApplicationForUser = (user) => {
   if (!user) return null;
   const apps = getStoredApplications();
-
-  // If user is Arkajit or Arkajit Bhattacharya
-  if (user.name?.toLowerCase().includes('arkajit') || user.email?.toLowerCase().includes('arkajit')) {
-    const arkajitApp = apps.find(
-      (a) =>
-        a.applicant?.name?.toLowerCase().includes('arkajit') ||
-        a.personalInfo?.fullName?.toLowerCase().includes('arkajit') ||
-        a.contactInfo?.email?.toLowerCase().includes('arkajit')
-    );
-    if (arkajitApp) return arkajitApp;
-  }
 
   // If logged in as Rohan
   if (user.email === 'rohan.sharma@example.com') {
@@ -933,9 +830,10 @@ export const saveOrUpdateApplication = (appData, user) => {
       academicInfo: appData.academicInfo || {},
       courseSelection: appData.courseSelection || {},
       examInfo: appData.examInfo || {},
-      status: appData.status || 'SUBMITTED',
-      paymentStatus: appData.paymentStatus || 'PAID',
-      documents: [],
+      status: appData.status || 'DRAFT',
+      paymentStatus: appData.paymentStatus || 'PENDING',
+      documents: appData.documents || [],
+      submittedByUser: false,
       createdAt: new Date().toISOString()
     };
     apps.unshift(updatedApp);
@@ -955,6 +853,7 @@ export const submitStudentApplication = (appId, user) => {
 
   if (app) {
     app.status = 'SUBMITTED';
+    app.submittedByUser = true;
     app.paymentStatus = 'PAID';
     app.submittedAt = new Date().toISOString();
 

@@ -46,7 +46,11 @@ const ProgressTracker = ({ currentStatus }) => {
           <div
             style={{
               height: '100%',
-              backgroundColor: isRejected ? 'var(--danger)' : 'var(--primary)',
+              backgroundColor: isRejected
+                ? 'var(--danger)'
+                : currentStatus === 'ALLOCATED'
+                ? 'var(--success, #16a34a)'
+                : 'var(--primary)',
               width: `${(activeIndex / (steps.length - 1)) * 100}%`,
               transition: 'width 0.4s ease'
             }}
@@ -55,15 +59,16 @@ const ProgressTracker = ({ currentStatus }) => {
 
         {/* Steps */}
         {steps.map((step, idx) => {
-          const isCompleted = idx < activeIndex;
-          const isCurrent = idx === activeIndex;
+          const isAllocated = currentStatus === 'ALLOCATED';
+          const isCompleted = isAllocated ? true : idx < activeIndex;
+          const isCurrent = !isAllocated && idx === activeIndex;
           let nodeBg = 'var(--bg-card)';
           let nodeBorder = 'var(--border-color)';
           let nodeColor = 'var(--text-muted)';
 
           if (isCompleted) {
-            nodeBg = 'var(--primary)';
-            nodeBorder = 'var(--primary)';
+            nodeBg = isAllocated ? 'var(--success, #16a34a)' : 'var(--primary)';
+            nodeBorder = isAllocated ? 'var(--success, #16a34a)' : 'var(--primary)';
             nodeColor = '#ffffff';
           } else if (isCurrent) {
             nodeBg = isRejected ? 'var(--danger)' : 'var(--primary-light)';
