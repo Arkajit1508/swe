@@ -34,6 +34,20 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
 
   // 0. AUTHENTICATION & LOGIN HANDLERS
   if (endpoint.startsWith('/auth/admin-login') && method === 'POST') {
+    const cleanEmail = parsedBody?.email?.toLowerCase()?.trim();
+    const password = parsedBody?.password;
+    if (cleanEmail !== 'admin@iem.edu') {
+      return {
+        success: false,
+        message: 'Access denied: Only the authorized demo admin (admin@iem.edu) can sign in here.'
+      };
+    }
+    if (password !== 'Admin@123' && password !== 'admin@123') {
+      return {
+        success: false,
+        message: 'Invalid admin credentials. Please enter the correct demo admin password.'
+      };
+    }
     return {
       success: true,
       message: 'Dean / Admin login successful',
@@ -43,8 +57,15 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
   }
 
   if (endpoint.startsWith('/auth/login') && method === 'POST') {
-    const email = parsedBody?.email?.toLowerCase();
-    if (email === 'admin@iem.edu' || email === 'dean@iem.edu') {
+    const email = parsedBody?.email?.toLowerCase()?.trim();
+    const password = parsedBody?.password;
+    if (email === 'admin@iem.edu') {
+      if (password !== 'Admin@123' && password !== 'admin@123') {
+        return {
+          success: false,
+          message: 'Invalid admin credentials. Please enter the correct demo admin password.'
+        };
+      }
       return {
         success: true,
         message: 'Admin login successful',

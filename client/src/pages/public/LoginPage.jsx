@@ -18,6 +18,11 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
+      const cleanEmail = email.toLowerCase().trim();
+      if (activeTab === 'admin' && cleanEmail !== 'admin@iem.edu') {
+        throw new Error('Access denied: Only the authorized demo admin (admin@iem.edu) can sign in to the administration portal.');
+      }
+
       const user = await (activeTab === 'admin' ? adminLogin(email, password) : login(email, password));
       if (user.role === 'admin') {
         navigate('/admin/dashboard');

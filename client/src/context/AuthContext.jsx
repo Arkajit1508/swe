@@ -96,32 +96,31 @@ export const AuthProvider = ({ children }) => {
   };
 
   const adminLogin = async (email, password) => {
-    const isDemoAdmin =
-      email?.toLowerCase() === 'admin@iem.edu' ||
-      email?.toLowerCase() === 'dean@iem.edu';
+    const cleanEmail = email?.toLowerCase()?.trim();
+    if (cleanEmail !== 'admin@iem.edu') {
+      throw new Error('Access denied: Only the authorized demo admin (admin@iem.edu) can sign in here.');
+    }
 
     try {
-      const data = await api.post('/auth/admin-login', { email, password: password || 'Admin@123' });
-      if (data.success) {
+      const data = await api.post('/auth/admin-login', { email: cleanEmail, password });
+      if (data.success && data.user) {
         setToken(data.token);
         setUser(data.user);
         localStorage.setItem('iem_token', data.token);
         localStorage.setItem('iem_user', JSON.stringify(data.user));
         return data.user;
       }
+      throw new Error(data.message || 'Invalid admin credentials');
     } catch (err) {
-      // If the backend has no admin account or returned an error, fallback smoothly to demo admin
-      if (isDemoAdmin) {
+      if (err.message && !err.message.includes('fetch') && !err.message.includes('NetworkError') && !err.message.includes('Failed to fetch')) {
+        throw err;
+      }
+      // Offline fallback: strictly require valid demo admin password
+      if (password === 'Admin@123' || password === 'admin@123') {
         return loginAsDemoAdmin();
       }
-      throw err;
+      throw new Error('Invalid admin credentials. Please enter the correct demo admin password.');
     }
-
-    if (isDemoAdmin) {
-      return loginAsDemoAdmin();
-    }
-
-    throw new Error('Admin login failed');
   };
 
   const register = async (formData) => {

@@ -352,6 +352,10 @@ export default function FigmaAdmissionApp() {
     setAuthLoading(true);
     try {
       if (authRole === 'admin') {
+        const cleanEmail = loginEmail.toLowerCase().trim();
+        if (cleanEmail !== 'admin@iem.edu') {
+          throw new Error('Access denied: Only the authorized demo admin (admin@iem.edu) can log in as admin.');
+        }
         await adminLogin(loginEmail, loginPassword);
         navigate('/admin/dashboard');
       } else {
