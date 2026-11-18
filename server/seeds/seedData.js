@@ -173,7 +173,16 @@ const seedDB = async (customUri) => {
       role: 'student'
     });
 
-    console.log('Created 5 Student Accounts (Password: Student@123)');
+    const studentArkajit = await User.create({
+      name: 'Arkajit Bhattacharya',
+      email: 'arkajit1508@gmail.com',
+      password: studentPassword,
+      phone: '9830112233',
+      dateOfBirth: new Date('2005-08-15'),
+      role: 'student'
+    });
+
+    console.log('Created 6 Student Accounts (Password: Student@123)');
 
     // Create a dummy file in uploads so document links work
     const uploadsDir = path.join(__dirname, '../uploads');
@@ -499,6 +508,65 @@ const seedDB = async (customUri) => {
       },
       status: 'DRAFT',
       paymentStatus: 'PENDING'
+    });
+
+    // App 6: Arkajit -> SUBMITTED
+    const appArkajit = await Application.create({
+      applicant: studentArkajit._id,
+      applicationNumber: 'IEM-2026-1000',
+      personalInfo: {
+        fullName: 'Arkajit Bhattacharya',
+        dateOfBirth: new Date('2005-08-15'),
+        gender: 'Male',
+        category: 'General',
+        nationality: 'Indian',
+        bloodGroup: 'B+',
+        guardianName: 'Subir Bhattacharya',
+        guardianPhone: '9830114455'
+      },
+      contactInfo: {
+        email: 'arkajit1508@gmail.com',
+        phone: '9830112233',
+        addressLine: 'Salt Lake City, Sector 1',
+        city: 'Kolkata',
+        state: 'West Bengal',
+        pinCode: '700064'
+      },
+      academicInfo: {
+        tenthBoard: 'CBSE',
+        tenthSchool: 'South Point High School',
+        tenthYear: 2022,
+        tenthPercentage: 94.5,
+        twelfthBoard: 'CBSE',
+        twelfthSchool: 'South Point High School',
+        twelfthYear: 2024,
+        twelfthPercentage: 92.0,
+        stream: 'Science (PCM)'
+      },
+      courseSelection: {
+        department: 'Computer Science & Engineering',
+        program: 'B.Tech Computer Science & Engineering',
+        courseId: createdCourses[0]._id
+      },
+      examInfo: {
+        examName: 'IEMJEE 2026',
+        rollNumber: 'IEMJEE-2026-1000',
+        rankOrScore: 98
+      },
+      status: 'SUBMITTED',
+      paymentStatus: 'PAID',
+      submittedAt: new Date()
+    });
+
+    await Payment.create({
+      applicationId: appArkajit._id,
+      applicantId: studentArkajit._id,
+      amount: 500,
+      currency: 'INR',
+      paymentStatus: 'PAID',
+      transactionId: 'TXN-IEM-' + Date.now(),
+      paymentMethod: 'UPI',
+      paymentDate: new Date()
     });
 
     // Notifications
