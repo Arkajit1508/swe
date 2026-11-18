@@ -295,6 +295,7 @@ export default function FigmaAdmissionApp() {
 
   // Demo Login Quick Auto-fill
   const fillCredentials = (role) => {
+    setLoginError('');
     setAuthRole(role);
     if (role === 'admin') {
       setLoginEmail('admin@iem.edu');
