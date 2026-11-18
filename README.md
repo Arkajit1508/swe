@@ -2,9 +2,9 @@
 
 A full-stack academic web application developed for the Software Engineering Laboratory Project, representing an end-to-end admission portal for the Institute of Engineering & Management (IEM), Kolkata.
 
-**Live Application:** [https://iem-admission-frontend.onrender.com](https://iem-admission-frontend.onrender.com)
+**Live Application:** [https://iem-admission-frontend-g3cm.onrender.com](https://iem-admission-frontend-g3cm.onrender.com)
 
-**Backend API:** [https://iem-admission-api.onrender.com](https://iem-admission-api.onrender.com)
+**Backend API:** [https://iem-admission-backend.onrender.com/api](https://iem-admission-backend.onrender.com/api)
 
 > **Technology Stack Note:** Although the academic assignment specifies the MEAN stack, this implementation uses MERN (MongoDB, Express.js, React, Node.js), as permitted for a modern single-page frontend architecture.
 
@@ -57,9 +57,9 @@ The application is deployed using Render.
 
 **Live URLs**
 
-- Frontend: [https://iem-admission-frontend.onrender.com](https://iem-admission-frontend.onrender.com)
-- Backend: [https://iem-admission-api.onrender.com](https://iem-admission-api.onrender.com)
-- Backend health check: [https://iem-admission-api.onrender.com/api/health](https://iem-admission-api.onrender.com/api/health)
+- Frontend: [https://iem-admission-frontend-g3cm.onrender.com](https://iem-admission-frontend-g3cm.onrender.com)
+- Backend: [https://iem-admission-backend.onrender.com](https://iem-admission-backend.onrender.com)
+- Backend health check: [https://iem-admission-backend.onrender.com/api/health](https://iem-admission-backend.onrender.com/api/health)
 
 The frontend communicates with the backend through REST API requests. The backend connects to MongoDB Atlas for application data and Supabase Storage for document storage.
 
