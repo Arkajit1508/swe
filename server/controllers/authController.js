@@ -139,9 +139,22 @@ exports.adminLogin = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please enter admin credentials' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase(), role: 'admin' });
+    let user = await User.findOne({ email: email.toLowerCase(), role: 'admin' });
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Unauthorized: Admin account not found' });
+      // Auto-provision demo admin if credentials match
+      if (email.toLowerCase() === 'admin@iem.edu' && (password === 'Admin@123' || password === 'admin@123')) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash('Admin@123', salt);
+        user = await User.create({
+          name: 'IEM Admissions Dean',
+          email: 'admin@iem.edu',
+          password: hashedPassword,
+          phone: '9876543210',
+          role: 'admin'
+        });
+      } else {
+        return res.status(401).json({ success: false, message: 'Unauthorized: Admin account not found' });
+      }
     }
 
     const isMatch = await bcrypt.compare(password, user.password);

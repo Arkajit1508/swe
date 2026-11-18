@@ -9,7 +9,7 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, adminLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -18,7 +18,7 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const user = await login(email, password);
+      const user = await (activeTab === 'admin' ? adminLogin(email, password) : login(email, password));
       if (user.role === 'admin') {
         navigate('/admin/dashboard');
       } else {
