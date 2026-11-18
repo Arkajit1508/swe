@@ -89,6 +89,76 @@ export const INITIAL_COURSES = [
 
 export const INITIAL_APPLICATIONS = [
   {
+    _id: 'app-arkajit-bhattacharya-1000',
+    applicationNumber: 'IEM-2026-1000',
+    applicant: {
+      _id: 'usr-arkajit-bhattacharya',
+      name: 'Arkajit Bhattacharya',
+      email: 'arkajit.bhattacharya@iem.edu',
+      phone: '9876543210'
+    },
+    personalInfo: {
+      fullName: 'Arkajit Bhattacharya',
+      dateOfBirth: '2005-01-15',
+      gender: 'Male',
+      category: 'General',
+      nationality: 'Indian',
+      bloodGroup: 'B+',
+      guardianName: 'Guardian',
+      guardianPhone: '9830112233'
+    },
+    contactInfo: {
+      email: 'arkajit.bhattacharya@iem.edu',
+      phone: '9876543210',
+      addressLine: 'Sector V, Salt Lake',
+      city: 'Kolkata',
+      state: 'West Bengal',
+      pinCode: '700091'
+    },
+    academicInfo: {
+      tenthBoard: 'CBSE',
+      tenthSchool: 'Delhi Public School',
+      tenthYear: 2022,
+      tenthPercentage: 92.5,
+      twelfthBoard: 'CBSE',
+      twelfthSchool: 'Delhi Public School',
+      twelfthYear: 2024,
+      twelfthPercentage: 89.4,
+      stream: 'Science (PCM)'
+    },
+    courseSelection: {
+      department: 'Computer Science & Engineering',
+      program: 'B.Tech Computer Science & Engineering',
+      courseId: '6af306abd66f6850c18c2ca4'
+    },
+    examInfo: {
+      examName: 'IEMJEE 2026',
+      rollNumber: 'IEMJEE-2026-1000',
+      rankOrScore: 98
+    },
+    status: 'SUBMITTED',
+    paymentStatus: 'PAID',
+    submittedByUser: true,
+    documents: [
+      {
+        _id: 'doc-arkajit-01',
+        documentType: '10th_Marksheet',
+        originalFileName: 'arkajit_class10.pdf',
+        fileSize: '1.2 MB',
+        verificationStatus: 'PENDING'
+      },
+      {
+        _id: 'doc-arkajit-02',
+        documentType: '12th_Marksheet',
+        originalFileName: 'arkajit_class12.pdf',
+        fileSize: '1.4 MB',
+        verificationStatus: 'PENDING'
+      }
+    ],
+    createdAt: new Date().toISOString(),
+    submittedAt: new Date().toISOString()
+  },
+  {
     _id: 'app-rohan-1001',
     applicationNumber: 'IEM-2026-1001',
     applicant: {
@@ -678,50 +748,30 @@ export const getStoredApplications = () => {
     }
   });
 
-  // 2. Data migration & sanitizer: Reset any legacy pre-filled/fake mock data for registered users who haven't explicitly submitted
-  apps.forEach((a) => {
-    const isInitialDemoApplicant =
-      a.applicationNumber === 'IEM-2026-1001' ||
-      a.applicationNumber === 'IEM-2026-1002' ||
-      a.applicationNumber === 'IEM-2026-1003' ||
-      a.applicationNumber === 'IEM-2026-1004' ||
-      a.applicationNumber === 'IEM-2026-1005';
+  // 2. Ensure Arkajit's completed application is preserved with full submitted data
+  const arkajitInitial = INITIAL_APPLICATIONS.find((a) => a.applicationNumber === 'IEM-2026-1000');
+  const arkajitInApps = apps.find(
+    (a) =>
+      a.applicationNumber === 'IEM-2026-1000' ||
+      a.applicant?.name?.toLowerCase().includes('arkajit') ||
+      a.personalInfo?.fullName?.toLowerCase().includes('arkajit') ||
+      a.contactInfo?.email?.toLowerCase().includes('arkajit')
+  );
 
-    if (!isInitialDemoApplicant && !a.submittedByUser) {
-      if (
-        a.academicInfo?.tenthSchool === 'Delhi Public School' ||
-        a.academicInfo?.tenthSchool === 'High School' ||
-        a.academicInfo?.tenthPercentage === 92.5 ||
-        a.academicInfo?.tenthPercentage === 88.0 ||
-        a.documents?.some((d) => d.originalFileName?.includes('arkajit_class'))
-      ) {
-        a.status = 'DRAFT';
-        a.paymentStatus = 'PENDING';
-        a.documents = [];
-        a.academicInfo = {
-          tenthBoard: '',
-          tenthSchool: '',
-          tenthYear: '',
-          tenthPercentage: '',
-          twelfthBoard: '',
-          twelfthSchool: '',
-          twelfthYear: '',
-          twelfthPercentage: '',
-          stream: ''
-        };
-        a.courseSelection = {
-          department: '',
-          program: '',
-          courseId: ''
-        };
-        a.examInfo = {
-          examName: 'IEMJEE',
-          rollNumber: '',
-          rankOrScore: ''
-        };
-      }
+  if (arkajitInApps && arkajitInitial) {
+    // If Arkajit was previously wiped or lacks academic/course details, restore his filled data
+    if (!arkajitInApps.academicInfo?.tenthPercentage || arkajitInApps.status === 'DRAFT') {
+      arkajitInApps.academicInfo = { ...arkajitInitial.academicInfo };
+      arkajitInApps.courseSelection = { ...arkajitInitial.courseSelection };
+      arkajitInApps.examInfo = { ...arkajitInitial.examInfo };
+      arkajitInApps.documents = [...arkajitInitial.documents];
+      arkajitInApps.status = 'SUBMITTED';
+      arkajitInApps.paymentStatus = 'PAID';
+      arkajitInApps.submittedByUser = true;
     }
-  });
+  } else if (arkajitInitial) {
+    apps.unshift({ ...arkajitInitial });
+  }
 
   // 3. Ensure all base initial applications are preserved
   INITIAL_APPLICATIONS.forEach((baseApp) => {
@@ -744,12 +794,24 @@ export const getApplicationForUser = (user) => {
   if (!user) return null;
   const apps = getStoredApplications();
 
+  // If user is Arkajit or Arkajit Bhattacharya (already registered with filled application)
+  if (user.name?.toLowerCase().includes('arkajit') || user.email?.toLowerCase().includes('arkajit')) {
+    const arkajitApp = apps.find(
+      (a) =>
+        a.applicationNumber === 'IEM-2026-1000' ||
+        a.applicant?.name?.toLowerCase().includes('arkajit') ||
+        a.personalInfo?.fullName?.toLowerCase().includes('arkajit') ||
+        a.contactInfo?.email?.toLowerCase().includes('arkajit')
+    );
+    if (arkajitApp) return arkajitApp;
+  }
+
   // If logged in as Rohan
   if (user.email === 'rohan.sharma@example.com') {
     return apps.find((a) => a.applicant?.email === 'rohan.sharma@example.com') || apps[0];
   }
 
-  // Check if this user already has an application
+  // Check if this user already has an application in the store
   let found = apps.find(
     (a) =>
       (a.applicant?._id && String(a.applicant._id) === String(user.id || user._id)) ||
