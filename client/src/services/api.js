@@ -19,7 +19,11 @@ import {
   generateDocumentPreview
 } from './demoData.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://iem-admission-api.onrender.com/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:5000/api'
+    : 'https://iem-admission-backend.onrender.com/api');
 
 // Intercept / handle responses locally so registered candidates and seat decrements persist immediately
 const handleAppLogic = (endpoint, method = 'GET', body = null) => {
@@ -686,24 +690,6 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
 const request = async (endpoint, options = {}) => {
   const method = options.method || 'GET';
   const token = localStorage.getItem('iem_token');
-  const isDemoSession = !token || token.startsWith('demo-');
-
-  // Handle local synchronous store first for responsive seats and applications
-  const localHandled = handleAppLogic(endpoint, method, options.body);
-  if (localHandled) {
-    // If backend is active, also asynchronously attempt to update the backend
-    if (!isDemoSession && method !== 'GET') {
-      try {
-        const headers = { Accept: 'application/json', ...options.headers };
-        if (!(options.body instanceof FormData) && options.body !== undefined) {
-          headers['Content-Type'] = 'application/json';
-        }
-        if (token) headers.Authorization = `Bearer ${token}`;
-        fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers }).catch(() => {});
-      } catch {}
-    }
-    return localHandled;
-  }
 
   const headers = {
     Accept: 'application/json',
@@ -714,7 +700,8 @@ const request = async (endpoint, options = {}) => {
     headers['Content-Type'] = 'application/json';
   }
 
-  if (token) {
+  // Attach token if present and not a dummy demo string
+  if (token && !token.startsWith('demo-')) {
     headers.Authorization = `Bearer ${token}`;
   }
 
@@ -732,15 +719,18 @@ const request = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      const fallback = handleAppLogic(endpoint, method, options.body);
-      if (fallback) return fallback;
       throw new Error(data.message || `Request failed with status ${response.status}`);
     }
 
     return data;
   } catch (error) {
-    const fallback = handleAppLogic(endpoint, method, options.body);
-    if (fallback) return fallback;
+    // Only fall back to local offline logic if backend is completely unreachable (offline)
+    const isOffline = error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'));
+    if (isOffline) {
+      console.warn(`Backend connection failed (${error.message}). Checking offline fallback for: ${endpoint}`);
+      const fallback = handleAppLogic(endpoint, method, options.body);
+      if (fallback) return fallback;
+    }
     throw error;
   }
 };

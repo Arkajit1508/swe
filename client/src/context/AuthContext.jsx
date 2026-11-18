@@ -65,13 +65,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    const isDemoStudent =
-      email?.toLowerCase() === 'rohan.sharma@example.com' ||
-      email?.toLowerCase() === 'student@example.com';
-
     try {
       const data = await api.post('/auth/login', { email, password });
-      if (data.success) {
+      if (data.success && data.user) {
         setToken(data.token);
         setUser(data.user);
         localStorage.setItem('iem_token', data.token);
@@ -81,18 +77,19 @@ export const AuthProvider = ({ children }) => {
         }
         return data.user;
       }
+      throw new Error(data.message || 'Login failed');
     } catch (err) {
-      if (isDemoStudent) {
+      if (err.message && !err.message.includes('fetch') && !err.message.includes('NetworkError') && !err.message.includes('Failed to fetch')) {
+        throw err;
+      }
+      const isDemoStudent =
+        email?.toLowerCase() === 'rohan.sharma@example.com' ||
+        email?.toLowerCase() === 'student@example.com';
+      if (isDemoStudent && (password === 'Student@123' || password === 'student@123')) {
         return loginAsDemoStudent();
       }
-      throw err;
+      throw new Error('Login failed. Please check your credentials.');
     }
-
-    if (isDemoStudent) {
-      return loginAsDemoStudent();
-    }
-
-    throw new Error('Login failed');
   };
 
   const adminLogin = async (email, password) => {
@@ -128,6 +125,9 @@ export const AuthProvider = ({ children }) => {
     try {
       data = await api.post('/auth/register', formData);
     } catch (err) {
+      if (err.message && !err.message.includes('fetch') && !err.message.includes('NetworkError') && !err.message.includes('Failed to fetch')) {
+        throw err;
+      }
       // If backend fails or offline, provide seamless fallback registration
       const newUserId = 'user-' + Date.now();
       data = {

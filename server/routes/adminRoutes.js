@@ -16,6 +16,11 @@ const {
   verifyDocument
 } = require('../controllers/documentController');
 
+const {
+  allocateSeat,
+  getAllAllocations
+} = require('../controllers/counsellingController');
+
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
 
@@ -32,5 +37,9 @@ router.put('/applications/:id/status', updateApplicationStatus);
 
 // Documents
 router.put('/documents/:id/verify', verifyDocument);
+
+// Counselling & Seat Allocation
+router.get('/counselling/all', getAllAllocations);
+router.post('/counselling/allocate', allocateSeat);
 
 module.exports = router;
