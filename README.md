@@ -12,7 +12,7 @@ A full-stack academic web application developed for the Software Engineering Lab
 
 ## 1. Project Overview
 
-The IEM Admission Management System streamlines the student admission lifecycle, from online registration and application submission to document verification, entrance examination management, merit ranking, and departmental seat allocation.
+The IEM Admission Management System streamlines the student admission lifecycle, from online registration and application submission to document verification, merit ranking, and departmental seat allocation.
 
 ### Key Features
 
@@ -25,7 +25,7 @@ The IEM Admission Management System streamlines the student admission lifecycle,
 - Simulated application fee payment of ₹500 with receipt generation.
 - Seven-stage visual admission progress tracker.
 - View and download application details.
-- Access entrance examination schedules, merit ranks, and provisional seat allotment information.
+- Access provisional seat allotment information and departmental notifications.
 - In-app notification system with unread status indicators.
 
 **For Administrators / Admissions Committee**
@@ -36,8 +36,8 @@ The IEM Admission Management System streamlines the student admission lifecycle,
 - Detailed applicant profile and application inspection.
 - Document verification with approve/reject actions and remarks.
 - Server-enforced application status transitions.
-- Entrance examination marks entry and rank management.
-- Admit card and examination status tracking.
+- Application status and document verification management.
+- Merit ranking and departmental seat allocation.
 - Departmental counselling and seat allocation.
 - Course and program capacity management.
 
@@ -403,7 +403,6 @@ const departmentDistribution = await Application.aggregate([
 | GET    | `/dashboard`               | Retrieve dashboard analytics   |
 | GET    | `/applications`            | Search and filter applications |
 | PUT    | `/applications/:id/status` | Update application status      |
-| POST   | `/exams`                   | Manage examination scores      |
 
 ### Documents – `/api/documents`
 
@@ -418,7 +417,6 @@ const departmentDistribution = await Application.aggregate([
 
 - Payments: `/api/payments`
 - Courses: `/api/courses`
-- Examinations: `/api/exams`
 - Counselling: `/api/counselling`
 - Notifications: `/api/notifications`
 

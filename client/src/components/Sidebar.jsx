@@ -19,7 +19,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     { to: '/admin/dashboard', icon: '📈', label: 'Dashboard Overview' },
     { to: '/admin/applications', icon: '📑', label: 'All Applications' },
     { to: '/admin/counselling', icon: '🏛️', label: 'Seat Counselling' },
-    { to: '/admin/exams', icon: '🎓', label: 'Exam Management' },
     { to: '/admin/courses', icon: '📚', label: 'Programs & Seats' }
   ];
 

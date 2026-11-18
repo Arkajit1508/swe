@@ -16,11 +16,6 @@ const {
   verifyDocument
 } = require('../controllers/documentController');
 
-const {
-  getAllExams,
-  createOrUpdateExam
-} = require('../controllers/examController');
-
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
 
@@ -37,9 +32,5 @@ router.put('/applications/:id/status', updateApplicationStatus);
 
 // Documents
 router.put('/documents/:id/verify', verifyDocument);
-
-// Exams
-router.get('/exams', getAllExams);
-router.post('/exams', createOrUpdateExam);
 
 module.exports = router;

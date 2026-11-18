@@ -2,9 +2,6 @@ import {
   DEMO_ADMIN_USER,
   DEMO_STUDENT_USER,
   INITIAL_COURSES,
-  DEMO_EXAMS,
-  getStoredExams,
-  saveStoredExams,
   DEMO_ALLOCATIONS,
   getStoredCourses,
   saveStoredCourses,
@@ -564,37 +561,6 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     return {
       success: true,
       documents: (app?.documents && app.documents.length > 0) ? app.documents : []
-    };
-  }
-
-  if (endpoint.startsWith('/admin/exams') || endpoint.startsWith('/exams')) {
-    if (method === 'POST' || method === 'PUT') {
-      const exams = getStoredExams();
-      const { applicationId, applicantId, score, rank, examStatus } = parsedBody || {};
-      const targetExam = exams.find(
-        (ex) =>
-          (applicationId && (ex.application === applicationId || ex.applicationId?._id === applicationId || ex._id === applicationId)) ||
-          (applicantId && (ex.applicant?._id === applicantId || ex.applicantId?._id === applicantId))
-      );
-      if (targetExam) {
-        if (score !== undefined) {
-          targetExam.score = Number(score);
-          targetExam.marks = Number(score);
-        }
-        if (rank !== undefined) targetExam.rank = Number(rank);
-        if (examStatus) targetExam.examStatus = examStatus;
-      }
-      saveStoredExams(exams);
-      return {
-        success: true,
-        message: 'Exam score updated successfully',
-        exam: targetExam
-      };
-    }
-
-    return {
-      success: true,
-      exams: getStoredExams()
     };
   }
 

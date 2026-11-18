@@ -11,7 +11,6 @@ const Course = require('../models/Course');
 const Application = require('../models/Application');
 const Document = require('../models/Document');
 const Payment = require('../models/Payment');
-const Exam = require('../models/Exam');
 const SeatAllocation = require('../models/SeatAllocation');
 const Notification = require('../models/Notification');
 
@@ -102,7 +101,6 @@ const seedDB = async (customUri) => {
     await Application.deleteMany({});
     await Document.deleteMany({});
     await Payment.deleteMany({});
-    await Exam.deleteMany({});
     await SeatAllocation.deleteMany({});
     await Notification.deleteMany({});
 
@@ -301,19 +299,6 @@ const seedDB = async (customUri) => {
       seatStatus: 'CONFIRMED',
       allocationDate: new Date(),
       remarks: 'Allocated under General Merit Quota'
-    });
-
-    // Exam for App 1
-    await Exam.create({
-      applicationId: app1._id,
-      applicantId: student1._id,
-      examName: 'IEMJEE 2026 Phase-1',
-      examDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
-      examVenue: 'IEM Salt Lake Campus Block-GN',
-      examStatus: 'COMPLETED',
-      score: 185,
-      rank: 142,
-      admitCardNumber: 'IEMJEE-2026-908123'
     });
 
     // App 2: Ananya -> APPROVED
