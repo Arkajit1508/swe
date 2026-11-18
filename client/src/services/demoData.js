@@ -8,7 +8,7 @@ export const INITIAL_COURSES = [
     degree: 'B.Tech',
     durationYears: 4,
     totalSeats: 180,
-    availableSeats: 140,
+    availableSeats: 139,
     applicationFee: 500,
     eligibility: '10+2 with PCM minimum 60% aggregate + valid IEMJEE/WBJEE rank',
     isActive: true
@@ -420,38 +420,16 @@ export const getStoredCourses = () => {
     console.warn('Error reading stored courses:', e);
   }
 
-  // Count how many submitted/allocated applicants there are for each course
-  let apps = [];
-  try {
-    const rawApps = localStorage.getItem('iem_applications');
-    if (rawApps) {
-      const parsedApps = JSON.parse(rawApps);
-      if (Array.isArray(parsedApps)) apps = parsedApps;
-    }
-  } catch {}
-
-  // Recalculate availableSeats dynamically so each applicant/allocation decrements the seat count
+  // Ensure CSE availableSeats reflects 139 (or less) since Arkajit is enrolled
   courses = courses.map((c) => {
-    const takenSeats = apps.filter((a) => {
-      const prog = (a.courseSelection?.program || a.courseSelection?.courseId || '').toLowerCase();
-      const cName = c.programName.toLowerCase();
-      const matches =
-        prog.includes(cName) ||
-        cName.includes(prog) ||
-        String(a.courseSelection?.courseId) === String(c._id);
-      return matches && a.status !== 'DRAFT';
-    }).length;
-
-    // Minimum 1 seat taken for CSE (Arkajit / Rohan)
-    const minTaken = c.programName.includes('Computer Science & Engineering') && !c.programName.includes('Business Systems') ? 1 : 0;
-    const effectiveTaken = Math.max(minTaken, takenSeats);
-    const calculatedAvailable = Math.max(0, c.totalSeats - effectiveTaken);
-    const existingAvailable = c.availableSeats !== undefined ? c.availableSeats : calculatedAvailable;
-
-    return {
-      ...c,
-      availableSeats: Math.min(existingAvailable, calculatedAvailable)
-    };
+    if (
+      c.programName.includes('Computer Science & Engineering') &&
+      !c.programName.includes('Business Systems')
+    ) {
+      const avail = c.availableSeats !== undefined ? Math.min(c.availableSeats, 139) : 139;
+      return { ...c, availableSeats: avail };
+    }
+    return c;
   });
 
   localStorage.setItem('iem_courses', JSON.stringify(courses));
@@ -1079,15 +1057,34 @@ export const DEMO_EXAMS = [
 export const DEMO_ALLOCATIONS = [
   {
     _id: 'alloc-01',
-    applicant: INITIAL_APPLICATIONS[1].applicant,
-    application: INITIAL_APPLICATIONS[1],
+    applicationId: INITIAL_APPLICATIONS[1],
+    applicantId: INITIAL_APPLICATIONS[1].applicant,
+    courseId: INITIAL_COURSES[0],
     allocatedCourse: INITIAL_COURSES[0],
     department: 'Computer Science & Engineering',
     program: 'B.Tech Computer Science & Engineering',
-    seatCategory: 'General Merit',
-    quota: 'General',
-    allotmentStatus: 'CONFIRMED',
+    round: 1,
+    seatStatus: 'PROVISIONALLY_ALLOCATED',
     allocationDate: new Date(Date.now() - 2 * 86400000).toISOString(),
     remarks: 'Candidate selected B.Tech CSE as 1st preference and confirmed admission.'
   }
 ];
+
+export const getStoredAllocations = () => {
+  try {
+    const raw = localStorage.getItem('iem_allocations');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn('Error reading stored allocations:', e);
+  }
+  localStorage.setItem('iem_allocations', JSON.stringify(DEMO_ALLOCATIONS));
+  return [...DEMO_ALLOCATIONS];
+};
+
+export const saveStoredAllocations = (allocations) => {
+  localStorage.setItem('iem_allocations', JSON.stringify(allocations));
+  return allocations;
+};

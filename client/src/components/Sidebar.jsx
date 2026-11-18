@@ -11,7 +11,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     { to: '/student/documents', icon: '📁', label: 'Document Upload' },
     { to: '/student/payment', icon: '💳', label: 'Fee Payment' },
     { to: '/student/application/view', icon: '🖨️', label: 'Print Application' },
-    { to: '/student/exam', icon: '🎓', label: 'Entrance Exam' },
     { to: '/student/counselling', icon: '🏛️', label: 'Seat Allocation' },
     { to: '/student/notifications', icon: '🔔', label: 'Notifications' }
   ];

@@ -40,13 +40,20 @@ const CounsellingAlloc = () => {
 
   const openAllocateModal = (app) => {
     setSelectedApp(app);
-    setSelectedCourse(app.courseSelection?.courseId?._id || app.courseSelection?.courseId || '');
+    const matched = courses.find(
+      (c) =>
+        c._id === app.courseSelection?.courseId?._id ||
+        c._id === app.courseSelection?.courseId ||
+        (app.courseSelection?.program && c.programName.toLowerCase() === app.courseSelection.program.toLowerCase()) ||
+        (app.courseSelection?.program && c.programName.toLowerCase().includes(app.courseSelection.program.toLowerCase()))
+    );
+    setSelectedCourse(matched ? matched._id : courses[0]?._id || '');
     setModalOpen(true);
   };
 
   const handleAllocateSeat = async () => {
     if (!selectedApp || !selectedCourse) {
-      return setMessage({ type: 'danger', text: 'Please select a valid course' });
+      return setMessage({ type: 'danger', text: 'Please select a valid course for seat allocation' });
     }
 
     setAllocating(true);
@@ -61,10 +68,22 @@ const CounsellingAlloc = () => {
         remarks
       });
 
-      if (res.success) {
-        setMessage({ type: 'success', text: `Seat in allocated successfully!` });
+      if (res && res.success) {
+        const studentName =
+          selectedApp.personalInfo?.fullName ||
+          selectedApp.applicant?.name ||
+          'Applicant';
+        const allocatedCourseObj = courses.find((c) => c._id === selectedCourse);
+        const courseName = allocatedCourseObj
+          ? allocatedCourseObj.programName
+          : selectedApp.courseSelection?.program || 'Departmental Program';
+
+        setMessage({
+          type: 'success',
+          text: `A seat has been allocated successfully to ${studentName} for ${courseName}!`
+        });
         setModalOpen(false);
-        fetchData();
+        await fetchData();
       }
     } catch (err) {
       setMessage({ type: 'danger', text: err.message || 'Seat allocation failed' });

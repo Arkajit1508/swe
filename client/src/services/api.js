@@ -11,6 +11,8 @@ import {
   saveStoredApplications,
   getRegisteredUsers,
   addRegisteredUser,
+  getStoredAllocations,
+  saveStoredAllocations,
   getApplicationForUser,
   saveOrUpdateApplication,
   submitStudentApplication,
@@ -21,11 +23,28 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://iem-admission-api.
 
 // Intercept / handle responses locally so registered candidates and seat decrements persist immediately
 const handleAppLogic = (endpoint, method = 'GET', body = null) => {
+  let parsedBody = body;
+  if (typeof body === 'string') {
+    try {
+      parsedBody = JSON.parse(body);
+    } catch {}
+  }
   const savedUserStr = localStorage.getItem('iem_user');
   const user = savedUserStr ? JSON.parse(savedUserStr) : DEMO_ADMIN_USER;
 
   // 1. COURSES & SEAT AVAILABILITY
   if (endpoint.startsWith('/courses')) {
+    if (method === 'PUT') {
+      const match = endpoint.match(/\/courses\/([^/?]+)/);
+      const courseId = match ? match[1] : null;
+      const courses = getStoredCourses();
+      const idx = courses.findIndex((c) => c._id === courseId);
+      if (idx >= 0 && parsedBody) {
+        courses[idx] = { ...courses[idx], ...parsedBody };
+        saveStoredCourses(courses);
+        return { success: true, course: courses[idx] };
+      }
+    }
     const courses = getStoredCourses();
     return {
       success: true,
@@ -95,7 +114,10 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
       const app = apps.find((a) => a._id === targetId || a.applicationNumber === targetId);
       if (app) {
         const prevStatus = app.status;
-        app.status = body?.status || app.status;
+        app.status = parsedBody?.status || app.status;
+        if (parsedBody?.rejectionReason) {
+          app.rejectionReason = parsedBody.rejectionReason;
+        }
         // If transitioning to ALLOCATED and wasn't allocated before, decrement seat
         if (app.status === 'ALLOCATED' && prevStatus !== 'ALLOCATED') {
           decrementCourseSeat(app.courseSelection?.courseId || app.courseSelection?.program);
@@ -183,26 +205,51 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
 
   // 7. COUNSELLING ALLOCATION & SEAT REDUCTION
   if (endpoint.includes('/counselling/allocate') && method === 'POST') {
-    const { applicationId, courseId } = body || {};
+    const { applicationId, courseId, round, remarks, seatStatus } = parsedBody || {};
     const apps = getStoredApplications();
     const app = apps.find((a) => a._id === applicationId || a.applicationNumber === applicationId);
     if (app) {
       app.status = 'ALLOCATED';
       saveStoredApplications(apps);
     }
-    if (courseId) {
-      decrementCourseSeat(courseId);
+
+    // Decrement course seat
+    const courses = getStoredCourses();
+    const targetCourse =
+      courses.find((c) => c._id === courseId || c.programName === courseId) || courses[0];
+    if (targetCourse) {
+      decrementCourseSeat(targetCourse._id);
     }
+
+    // Save allocation record
+    const allocations = getStoredAllocations();
+    const newAllocation = {
+      _id: 'alloc-' + Date.now(),
+      applicationId: app,
+      applicantId: app?.applicant,
+      courseId: targetCourse,
+      allocatedCourse: targetCourse,
+      department: targetCourse?.department || 'Computer Science & Engineering',
+      program: targetCourse?.programName || 'B.Tech Program',
+      round: round || 1,
+      seatStatus: seatStatus || 'CONFIRMED',
+      allocationDate: new Date().toISOString(),
+      remarks: remarks || 'Merit Quota Allocation'
+    };
+    allocations.unshift(newAllocation);
+    saveStoredAllocations(allocations);
+
     return {
       success: true,
-      message: 'Seat allocated successfully and course capacity updated.'
+      message: 'A seat has been allocated successfully!',
+      allocation: newAllocation
     };
   }
 
   if (endpoint.startsWith('/counselling/all')) {
     return {
       success: true,
-      allocations: DEMO_ALLOCATIONS
+      allocations: getStoredAllocations()
     };
   }
 
@@ -215,8 +262,8 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
       if (a.documents) {
         const doc = a.documents.find((d) => d._id === docId);
         if (doc) {
-          doc.verificationStatus = body?.verificationStatus || 'VERIFIED';
-          doc.remarks = body?.remarks || '';
+          doc.verificationStatus = parsedBody?.verificationStatus || 'VERIFIED';
+          doc.remarks = parsedBody?.remarks || '';
         }
       }
     });
@@ -329,9 +376,16 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
 
   if (endpoint.startsWith('/counselling/me')) {
     const app = getApplicationForUser(user);
+    const allocations = getStoredAllocations();
+    const userAlloc = allocations.find(
+      (al) =>
+        (app && (al.applicationId?._id === app._id || al.applicationId?.applicationNumber === app.applicationNumber)) ||
+        (user && (al.applicantId?._id === user._id || al.applicantId?.email === user.email))
+    );
+
     return {
       success: true,
-      allocation: {
+      allocation: userAlloc || {
         _id: 'alloc-me',
         applicationId: app,
         courseId: {
@@ -345,11 +399,7 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
   }
 
   if (endpoint.startsWith('/auth/register') && method === 'POST') {
-    let parsed = body;
-    if (typeof body === 'string') {
-      try { parsed = JSON.parse(body); } catch {}
-    }
-    const newUser = addRegisteredUser(parsed);
+    const newUser = addRegisteredUser(parsedBody);
     return {
       success: true,
       token: 'token-reg-' + Date.now(),

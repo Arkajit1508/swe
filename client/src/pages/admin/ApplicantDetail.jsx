@@ -111,6 +111,15 @@ const ApplicantDetail = () => {
           text: `Document marked as ${verificationStatus} successfully!`
         });
 
+        // Instant local optimistic update for immediate button toggling
+        setData((prev) => {
+          if (!prev) return prev;
+          const updatedDocs = (prev.documents || []).map((d) =>
+            d._id === docId ? { ...d, verificationStatus, remarks: remark } : d
+          );
+          return { ...prev, documents: updatedDocs };
+        });
+
         await fetchApplicant();
       }
     } catch (err) {
@@ -559,33 +568,37 @@ const ApplicantDetail = () => {
                         display: 'flex',
                         gap: '0.5rem'
                       }}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleVerifyDocument(doc._id, 'VERIFIED')
-                          }
-                          className="btn btn-success btn-sm"
-                          disabled={verifyingDocId === doc._id}
-                          title="Mark Document Verified"
-                        >
-                          {verifyingDocId === doc._id
-                            ? 'Saving...'
-                            : '✓ Verify'}
-                        </button>
+                        {doc.verificationStatus !== 'VERIFIED' && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleVerifyDocument(doc._id, 'VERIFIED')
+                            }
+                            className="btn btn-success btn-sm"
+                            disabled={verifyingDocId === doc._id}
+                            title="Mark Document Verified"
+                          >
+                            {verifyingDocId === doc._id
+                              ? 'Saving...'
+                              : '✓ Verify'}
+                          </button>
+                        )}
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleVerifyDocument(doc._id, 'REJECTED')
-                          }
-                          className="btn btn-danger btn-sm"
-                          disabled={verifyingDocId === doc._id}
-                          title="Mark Document Rejected"
-                        >
-                          {verifyingDocId === doc._id
-                            ? 'Saving...'
-                            : '✕ Reject'}
-                        </button>
+                        {doc.verificationStatus !== 'REJECTED' && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleVerifyDocument(doc._id, 'REJECTED')
+                            }
+                            className="btn btn-danger btn-sm"
+                            disabled={verifyingDocId === doc._id}
+                            title="Mark Document Rejected"
+                          >
+                            {verifyingDocId === doc._id
+                              ? 'Saving...'
+                              : '✕ Reject'}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
