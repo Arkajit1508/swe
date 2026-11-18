@@ -89,6 +89,75 @@ export const INITIAL_COURSES = [
 
 export const INITIAL_APPLICATIONS = [
   {
+    _id: 'app-arkajit-1000',
+    applicationNumber: 'IEM-2026-1000',
+    applicant: {
+      _id: 'user-arkajit-001',
+      name: 'Arkajit',
+      email: 'arkajit@iem.edu',
+      phone: '9876543210'
+    },
+    personalInfo: {
+      fullName: 'Arkajit',
+      dateOfBirth: '2005-01-15',
+      gender: 'Male',
+      category: 'General',
+      nationality: 'Indian',
+      bloodGroup: 'B+',
+      guardianName: 'Guardian',
+      guardianPhone: '9876543211'
+    },
+    contactInfo: {
+      email: 'arkajit@iem.edu',
+      phone: '9876543210',
+      addressLine: 'Sector V, Salt Lake',
+      city: 'Kolkata',
+      state: 'West Bengal',
+      pinCode: '700091'
+    },
+    academicInfo: {
+      tenthBoard: 'CBSE',
+      tenthSchool: 'Delhi Public School',
+      tenthYear: 2022,
+      tenthPercentage: 92.5,
+      twelfthBoard: 'CBSE',
+      twelfthSchool: 'Delhi Public School',
+      twelfthYear: 2024,
+      twelfthPercentage: 89.4,
+      stream: 'Science (PCM)'
+    },
+    courseSelection: {
+      department: 'Computer Science & Engineering',
+      program: 'B.Tech Computer Science & Engineering',
+      courseId: '6af306abd66f6850c18c2ca4'
+    },
+    examInfo: {
+      examName: 'IEMJEE 2026',
+      rollNumber: 'IEMJEE-2026-1000',
+      rankOrScore: 98
+    },
+    status: 'SUBMITTED',
+    paymentStatus: 'PAID',
+    documents: [
+      {
+        _id: 'doc-arkajit-01',
+        documentType: '10th_Marksheet',
+        originalFileName: 'arkajit_class10.pdf',
+        fileSize: '1.2 MB',
+        verificationStatus: 'PENDING'
+      },
+      {
+        _id: 'doc-arkajit-02',
+        documentType: '12th_Marksheet',
+        originalFileName: 'arkajit_class12.pdf',
+        fileSize: '1.4 MB',
+        verificationStatus: 'PENDING'
+      }
+    ],
+    createdAt: new Date().toISOString(),
+    submittedAt: new Date().toISOString()
+  },
+  {
     _id: 'app-rohan-1001',
     applicationNumber: 'IEM-2026-1001',
     applicant: {
@@ -380,17 +449,123 @@ export const decrementCourseSeat = (courseIdentifier) => {
 
 // Application State Management
 export const getStoredApplications = () => {
+  let apps = [];
   try {
     const raw = localStorage.getItem('iem_applications');
     if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      apps = JSON.parse(raw);
     }
   } catch (e) {
     console.warn('Error reading stored applications:', e);
   }
-  localStorage.setItem('iem_applications', JSON.stringify(INITIAL_APPLICATIONS));
-  return INITIAL_APPLICATIONS;
+
+  if (!apps || !Array.isArray(apps) || apps.length === 0) {
+    apps = [...INITIAL_APPLICATIONS];
+  }
+
+  // Ensure Arkajit is always present at the top of the applications list
+  const arkajitIndex = apps.findIndex((a) =>
+    a.applicant?.name?.toLowerCase().includes('arkajit') ||
+    a.personalInfo?.fullName?.toLowerCase().includes('arkajit') ||
+    a.contactInfo?.email?.toLowerCase().includes('arkajit')
+  );
+
+  const currentUserRaw = localStorage.getItem('iem_user');
+  let currentUser = null;
+  if (currentUserRaw) {
+    try {
+      currentUser = JSON.parse(currentUserRaw);
+    } catch {}
+  }
+
+  if (arkajitIndex === -1) {
+    const arkajitName = currentUser?.name?.toLowerCase().includes('arkajit') ? currentUser.name : 'Arkajit';
+    const arkajitEmail = currentUser?.email?.toLowerCase().includes('arkajit') ? currentUser.email : (currentUser?.email || 'arkajit@iem.edu');
+    const arkajitPhone = currentUser?.phone || '9876543210';
+
+    const arkajitApp = {
+      _id: 'app-arkajit-1000',
+      applicationNumber: 'IEM-2026-1000',
+      applicant: {
+        _id: currentUser?.id || currentUser?._id || 'user-arkajit-001',
+        name: arkajitName,
+        email: arkajitEmail,
+        phone: arkajitPhone
+      },
+      personalInfo: {
+        fullName: arkajitName,
+        dateOfBirth: currentUser?.dateOfBirth ? String(currentUser.dateOfBirth).slice(0, 10) : '2005-01-15',
+        gender: 'Male',
+        category: 'General',
+        nationality: 'Indian',
+        bloodGroup: 'B+',
+        guardianName: 'Guardian',
+        guardianPhone: '9876543211'
+      },
+      contactInfo: {
+        email: arkajitEmail,
+        phone: arkajitPhone,
+        addressLine: 'Sector V, Salt Lake',
+        city: 'Kolkata',
+        state: 'West Bengal',
+        pinCode: '700091'
+      },
+      academicInfo: {
+        tenthBoard: 'CBSE',
+        tenthSchool: 'Delhi Public School',
+        tenthYear: 2022,
+        tenthPercentage: 92.5,
+        twelfthBoard: 'CBSE',
+        twelfthSchool: 'Delhi Public School',
+        twelfthYear: 2024,
+        twelfthPercentage: 89.4,
+        stream: 'Science (PCM)'
+      },
+      courseSelection: {
+        department: 'Computer Science & Engineering',
+        program: 'B.Tech Computer Science & Engineering',
+        courseId: '6af306abd66f6850c18c2ca4'
+      },
+      examInfo: {
+        examName: 'IEMJEE 2026',
+        rollNumber: 'IEMJEE-2026-1000',
+        rankOrScore: 98
+      },
+      status: 'SUBMITTED',
+      paymentStatus: 'PAID',
+      documents: [
+        {
+          _id: 'doc-arkajit-01',
+          documentType: '10th_Marksheet',
+          originalFileName: 'arkajit_class10.pdf',
+          fileSize: '1.2 MB',
+          verificationStatus: 'PENDING'
+        },
+        {
+          _id: 'doc-arkajit-02',
+          documentType: '12th_Marksheet',
+          originalFileName: 'arkajit_class12.pdf',
+          fileSize: '1.4 MB',
+          verificationStatus: 'PENDING'
+        }
+      ],
+      createdAt: new Date().toISOString(),
+      submittedAt: new Date().toISOString()
+    };
+
+    apps.unshift(arkajitApp);
+  } else if (currentUser?.name?.toLowerCase().includes('arkajit')) {
+    // Sync with currently logged-in Arkajit profile
+    apps[arkajitIndex].applicant.name = currentUser.name;
+    apps[arkajitIndex].personalInfo.fullName = currentUser.name;
+    if (currentUser.email) {
+      apps[arkajitIndex].applicant.email = currentUser.email;
+      apps[arkajitIndex].contactInfo.email = currentUser.email;
+    }
+  }
+
+  localStorage.setItem('iem_applications', JSON.stringify(apps));
+  return apps;
 };
 
 export const saveStoredApplications = (apps) => {
