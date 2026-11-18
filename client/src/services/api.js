@@ -18,7 +18,8 @@ import {
   getApplicationForUser,
   saveOrUpdateApplication,
   submitStudentApplication,
-  getDashboardStatsFromStored
+  getDashboardStatsFromStored,
+  generateDocumentPreview
 } from './demoData';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://iem-admission-api.onrender.com/api';
@@ -111,7 +112,7 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
 
   // 3. APPLICATION DRAFT SAVE
   if (endpoint === '/applications/draft' && method === 'POST') {
-    const saved = saveOrUpdateApplication(body || {}, user);
+    const saved = saveOrUpdateApplication(parsedBody || {}, user);
     return {
       success: true,
       message: 'Draft saved successfully',
@@ -315,22 +316,89 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     };
   }
 
+  // 8.5. DOCUMENT VIEW URL
+  if (endpoint.match(/\/documents\/([^/?]+)\/url/)) {
+    const match = endpoint.match(/\/documents\/([^/?]+)\/url/);
+    const docId = match ? match[1] : null;
+    const apps = getStoredApplications();
+    let foundDoc = null;
+    let foundApp = null;
+    for (const a of apps) {
+      if (a.documents) {
+        const d = a.documents.find((doc) => doc._id === docId);
+        if (d) {
+          foundDoc = d;
+          foundApp = a;
+          break;
+        }
+      }
+    }
+    if (!foundDoc) {
+      for (const a of INITIAL_APPLICATIONS) {
+        if (a.documents) {
+          const d = a.documents.find((doc) => doc._id === docId);
+          if (d) {
+            foundDoc = d;
+            foundApp = a;
+            break;
+          }
+        }
+      }
+    }
+
+    const { url, html } = generateDocumentPreview(foundDoc, foundApp);
+    return {
+      success: true,
+      url,
+      html,
+      document: foundDoc
+    };
+  }
+
   // 9. DOCUMENT UPLOAD & DELETE
   if (endpoint === '/documents/upload' && method === 'POST') {
     const apps = getStoredApplications();
     const app = getApplicationForUser(user);
     if (app) {
       if (!app.documents) app.documents = [];
+
+      let docType = parsedBody?.documentType;
+      let fileName = parsedBody?.fileName;
+      let fileSize = parsedBody?.fileSize;
+      let dataUrl = parsedBody?.dataUrl;
+
+      if (body instanceof FormData) {
+        docType = body.get('documentType') || docType;
+        fileName = body.get('fileName') || body.get('file')?.name || fileName;
+        if (body.get('file')?.size) {
+          fileSize = `${Math.round(body.get('file').size / 1024)} KB`;
+        }
+        dataUrl = body.get('dataUrl') || dataUrl;
+      }
+
       const newDoc = {
         _id: `doc-${Date.now()}`,
-        documentType: 'Marksheet / Certificate',
-        originalFileName: 'uploaded_document.pdf',
-        fileSize: '1.1 MB',
+        documentType: docType || '10th_Marksheet',
+        originalFileName: fileName || 'uploaded_document.pdf',
+        fileSize: fileSize || '1.2 MB',
         verificationStatus: 'PENDING',
+        dataUrl: dataUrl || null,
         uploadedAt: new Date().toISOString()
       };
-      app.documents.push(newDoc);
+
+      const existingIdx = app.documents.findIndex((d) => d.documentType === newDoc.documentType);
+      if (existingIdx >= 0) {
+        app.documents[existingIdx] = newDoc;
+      } else {
+        app.documents.push(newDoc);
+      }
+
       saveStoredApplications(apps);
+      return {
+        success: true,
+        message: 'Document uploaded successfully',
+        document: newDoc
+      };
     }
     return {
       success: true,
@@ -577,13 +645,18 @@ export const api = {
   delete: (endpoint) => request(endpoint, { method: 'DELETE' }),
 
   openDocument: async (documentId) => {
-    const newWindow = window.open('about:blank', '_blank');
     try {
       const data = await request(`/documents/${documentId}/url`, { method: 'GET' });
-      if (newWindow) newWindow.location.href = data.url;
-      else window.location.href = data.url;
+      if (data && data.url) {
+        const newWindow = window.open(data.url, '_blank');
+        if (!newWindow) {
+          window.location.href = data.url;
+        }
+        return data;
+      }
+      throw new Error('Failed to retrieve document view URL');
     } catch (error) {
-      if (newWindow) newWindow.close();
+      console.error('Error opening document:', error);
       throw error;
     }
   }

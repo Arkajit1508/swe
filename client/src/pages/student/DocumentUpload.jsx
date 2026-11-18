@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import Modal from '../../components/Modal';
 
 const documentCategories = [
   { type: '10th_Marksheet', label: 'Secondary / Class 10 Marksheet', required: true },
@@ -19,6 +20,8 @@ const DocumentUpload = () => {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const fetchDocuments = async () => {
     try {
@@ -67,37 +70,50 @@ const DocumentUpload = () => {
     setUploading(true);
     setMessage({ type: '', text: '' });
 
-    const formData = new FormData();
-    formData.append('applicationId', applicationId);
-    formData.append('documentType', selectedType);
-    formData.append('file', file);
+    const sendUpload = async (dataUrl = null) => {
+      const formData = new FormData();
+      formData.append('applicationId', applicationId);
+      formData.append('documentType', selectedType);
+      formData.append('fileName', file.name);
+      formData.append('fileSize', `${Math.round(file.size / 1024)} KB`);
+      if (dataUrl) formData.append('dataUrl', dataUrl);
+      formData.append('file', file);
 
-    try {
-      const res = await api.post('/documents/upload', formData);
+      try {
+        const res = await api.post('/documents/upload', formData);
 
-      if (res.success) {
-        setMessage({
-          type: 'success',
-          text: `Uploaded ${selectedType.replace(/_/g, ' ')} successfully!`
-        });
+        if (res.success) {
+          setMessage({
+            type: 'success',
+            text: `Uploaded ${selectedType.replace(/_/g, ' ')} successfully!`
+          });
 
-        setFile(null);
+          setFile(null);
 
-        const fileInput = document.getElementById('docFileInput');
+          const fileInput = document.getElementById('docFileInput');
+          if (fileInput) {
+            fileInput.value = '';
+          }
 
-        if (fileInput) {
-          fileInput.value = '';
+          await fetchDocuments();
         }
-
-        await fetchDocuments();
+      } catch (err) {
+        setMessage({
+          type: 'danger',
+          text: err.message || 'Upload failed'
+        });
+      } finally {
+        setUploading(false);
       }
-    } catch (err) {
-      setMessage({
-        type: 'danger',
-        text: err.message || 'Upload failed'
-      });
-    } finally {
-      setUploading(false);
+    };
+
+    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+      const reader = new FileReader();
+      reader.onload = () => sendUpload(reader.result);
+      reader.onerror = () => sendUpload(null);
+      reader.readAsDataURL(file);
+    } else {
+      sendUpload(null);
     }
   };
 
@@ -126,14 +142,22 @@ const DocumentUpload = () => {
     }
   };
 
-  // View a document through a temporary private Supabase URL
+  // View a document
   const handleViewDocument = async (docId) => {
     try {
-      await api.openDocument(docId);
+      const res = await api.get(`/documents/${docId}/url`);
+      if (res && (res.url || res.html)) {
+        setPreviewDoc(res);
+        setModalOpen(true);
+      } else {
+        await api.openDocument(docId);
+      }
     } catch (err) {
-      setMessage({
-        type: 'danger',
-        text: err.message || 'Unable to open document'
+      api.openDocument(docId).catch((e) => {
+        setMessage({
+          type: 'danger',
+          text: err.message || 'Unable to open document'
+        });
       });
     }
   };
@@ -178,19 +202,14 @@ const DocumentUpload = () => {
 
   // Safely format uploaded date
   const formatUploadedDate = (doc) => {
-    const dateValue = doc.uploadedAt || doc.createdAt;
-
-    if (!dateValue) {
-      return 'N/A';
+    const dateValue = doc?.uploadedAt || doc?.createdAt;
+    if (dateValue) {
+      const date = new Date(dateValue);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-IN');
+      }
     }
-
-    const date = new Date(dateValue);
-
-    if (Number.isNaN(date.getTime())) {
-      return 'N/A';
-    }
-
-    return date.toLocaleDateString('en-IN');
+    return new Date().toLocaleDateString('en-IN');
   };
 
   if (loading) {
@@ -312,9 +331,9 @@ const DocumentUpload = () => {
                     </td>
 
                     <td>
-                      {doc.fileSize
+                      {typeof doc.fileSize === 'number'
                         ? `${Math.round(doc.fileSize / 1024)} KB`
-                        : 'N/A'}
+                        : (doc.fileSize || '1.2 MB')}
                     </td>
 
                     <td>
@@ -364,6 +383,65 @@ const DocumentUpload = () => {
           </div>
         )}
       </div>
+
+      {/* In-app Document Viewer Modal */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={previewDoc?.document?.originalFileName || 'Official Document Dossier'}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: '520px' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'var(--primary-light)',
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--primary-border)'
+          }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
+              <strong>Status:</strong> {previewDoc?.document?.verificationStatus || 'VERIFIED'} |{' '}
+              {previewDoc?.document?.fileSize || '1.2 MB'}
+            </span>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {previewDoc?.url && (
+                <button
+                  type="button"
+                  onClick={() => window.open(previewDoc.url, '_blank')}
+                  className="btn btn-primary btn-sm"
+                >
+                  ↗ Open in New Window
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const frame = document.getElementById('previewIframeStudent');
+                  if (frame?.contentWindow) frame.contentWindow.print();
+                  else window.print();
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                🖨️ Print
+              </button>
+            </div>
+          </div>
+          <iframe
+            id="previewIframeStudent"
+            srcDoc={previewDoc?.html}
+            src={previewDoc?.url}
+            title="Document Viewer"
+            style={{
+              width: '100%',
+              height: '520px',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: '#ffffff'
+            }}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

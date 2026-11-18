@@ -290,6 +290,16 @@ const ApplicationForm = () => {
 
     setMessage({ type: '', text: '' });
     setActiveSection(targetSection);
+
+    // Auto-save progress in background on tab navigation
+    api.post('/applications/draft', {
+      _id: appId,
+      personalInfo,
+      contactInfo,
+      academicInfo,
+      courseSelection,
+      examInfo
+    }).catch(() => {});
   };
 
   const handleSaveDraft = async () => {
@@ -297,6 +307,7 @@ const ApplicationForm = () => {
     setMessage({ type: '', text: '' });
     try {
       const payload = {
+        _id: appId,
         personalInfo,
         contactInfo,
         academicInfo,
@@ -304,7 +315,8 @@ const ApplicationForm = () => {
         examInfo
       };
       const res = await api.post('/applications/draft', payload);
-      if (res.success) {
+      if (res && res.success) {
+        if (res.application?._id) setAppId(res.application._id);
         setMessage({ type: 'success', text: 'Application draft saved successfully!' });
       }
     } catch (err) {

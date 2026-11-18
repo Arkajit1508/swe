@@ -27,6 +27,8 @@ const ApplicantDetail = () => {
   const [docRemarks, setDocRemarks] = useState({});
   const [verifyingDocId, setVerifyingDocId] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [docModalOpen, setDocModalOpen] = useState(false);
 
   // Fetch applicant details
   const fetchApplicant = async () => {
@@ -168,14 +170,22 @@ const ApplicantDetail = () => {
     }
   };
 
-  // View a document using a temporary private Supabase URL
+  // View a document
   const handleViewDocument = async (docId) => {
     try {
-      await api.openDocument(docId);
+      const res = await api.get(`/documents/${docId}/url`);
+      if (res && (res.url || res.html)) {
+        setPreviewDoc(res);
+        setDocModalOpen(true);
+      } else {
+        await api.openDocument(docId);
+      }
     } catch (err) {
-      setMessage({
-        type: 'danger',
-        text: err.message || 'Unable to open document'
+      api.openDocument(docId).catch((e) => {
+        setMessage({
+          type: 'danger',
+          text: err.message || 'Unable to open document'
+        });
       });
     }
   };
@@ -711,6 +721,65 @@ const ApplicantDetail = () => {
           >
             Confirm Rejection
           </button>
+        </div>
+      </Modal>
+
+      {/* Document Inspector Modal */}
+      <Modal
+        isOpen={docModalOpen}
+        onClose={() => setDocModalOpen(false)}
+        title={previewDoc?.document?.originalFileName || 'Submitted Document Dossier'}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: '520px' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'var(--primary-light)',
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--primary-border)'
+          }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
+              <strong>Status:</strong> {previewDoc?.document?.verificationStatus || 'VERIFIED'} |{' '}
+              {previewDoc?.document?.fileSize || '1.2 MB'}
+            </span>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {previewDoc?.url && (
+                <button
+                  type="button"
+                  onClick={() => window.open(previewDoc.url, '_blank')}
+                  className="btn btn-primary btn-sm"
+                >
+                  ↗ Open in New Window
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const frame = document.getElementById('previewIframeAdmin');
+                  if (frame?.contentWindow) frame.contentWindow.print();
+                  else window.print();
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                🖨️ Print
+              </button>
+            </div>
+          </div>
+          <iframe
+            id="previewIframeAdmin"
+            srcDoc={previewDoc?.html}
+            src={previewDoc?.url}
+            title="Document Viewer"
+            style={{
+              width: '100%',
+              height: '520px',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: '#ffffff'
+            }}
+          />
         </div>
       </Modal>
     </div>

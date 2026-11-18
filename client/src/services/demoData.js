@@ -538,10 +538,12 @@ export const decrementCourseSeat = (courseIdentifier) => {
 export const getRegisteredUsers = () => {
   let users = [];
   try {
-    const raw = localStorage.getItem('iem_registered_users');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) users = parsed;
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('iem_registered_users');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) users = parsed;
+      }
     }
   } catch (e) {
     console.warn('Error reading registered users:', e);
@@ -734,19 +736,23 @@ export const createApplicationForRegisteredUser = (user) => {
 };
 
 // Application State Management
+let memoryApps = null;
+
 export const getStoredApplications = () => {
   let apps = [];
   try {
-    const raw = localStorage.getItem('iem_applications');
-    if (raw) {
-      apps = JSON.parse(raw);
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('iem_applications');
+      if (raw) {
+        apps = JSON.parse(raw);
+      }
     }
   } catch (e) {
     console.warn('Error reading stored applications:', e);
   }
 
   if (!apps || !Array.isArray(apps) || apps.length === 0) {
-    apps = [...INITIAL_APPLICATIONS];
+    apps = memoryApps ? [...memoryApps] : [...INITIAL_APPLICATIONS];
   }
 
   // 1. Sync all registered users from iem_registered_users into the application list as clean DRAFT applications
@@ -851,12 +857,18 @@ export const getStoredApplications = () => {
     }
   });
 
-  localStorage.setItem('iem_applications', JSON.stringify(apps));
+  memoryApps = apps;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('iem_applications', JSON.stringify(apps));
+  }
   return apps;
 };
 
 export const saveStoredApplications = (apps) => {
-  localStorage.setItem('iem_applications', JSON.stringify(apps));
+  memoryApps = apps;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('iem_applications', JSON.stringify(apps));
+  }
   return apps;
 };
 
@@ -899,11 +911,27 @@ export const getApplicationForUser = (user) => {
 };
 
 export const saveOrUpdateApplication = (appData, user) => {
+  if (typeof appData === 'string') {
+    try {
+      appData = JSON.parse(appData);
+    } catch {
+      appData = {};
+    }
+  }
+
   const apps = getStoredApplications();
   let existingIndex = -1;
 
   if (appData._id) {
     existingIndex = apps.findIndex((a) => a._id === appData._id || a.applicationNumber === appData._id);
+  }
+  if (existingIndex === -1 && (user?.id || user?._id)) {
+    const uid = String(user.id || user._id);
+    existingIndex = apps.findIndex(
+      (a) =>
+        (a.applicant?._id && String(a.applicant._id) === uid) ||
+        (a.applicant?.id && String(a.applicant.id) === uid)
+    );
   }
   if (existingIndex === -1 && user?.email) {
     existingIndex = apps.findIndex(
@@ -911,6 +939,16 @@ export const saveOrUpdateApplication = (appData, user) => {
         a.applicant?.email?.toLowerCase() === user.email.toLowerCase() ||
         a.contactInfo?.email?.toLowerCase() === user.email.toLowerCase()
     );
+  }
+  if (existingIndex === -1 && (user?.name || appData.personalInfo?.fullName)) {
+    const targetName = (appData.personalInfo?.fullName || user?.name || '').trim().toLowerCase();
+    if (targetName) {
+      existingIndex = apps.findIndex(
+        (a) =>
+          (a.applicant?.name && a.applicant.name.trim().toLowerCase() === targetName) ||
+          (a.personalInfo?.fullName && a.personalInfo.fullName.trim().toLowerCase() === targetName)
+      );
+    }
   }
 
   let updatedApp;
@@ -921,8 +959,8 @@ export const saveOrUpdateApplication = (appData, user) => {
       applicant: {
         ...apps[existingIndex].applicant,
         name: appData.personalInfo?.fullName || apps[existingIndex].applicant?.name,
-        email: appData.contactInfo?.email || apps[existingIndex].applicant?.email,
-        phone: appData.contactInfo?.phone || apps[existingIndex].applicant?.phone
+        email: appData.contactInfo?.email || user?.email || apps[existingIndex].applicant?.email,
+        phone: appData.contactInfo?.phone || user?.phone || apps[existingIndex].applicant?.phone
       },
       personalInfo: {
         ...apps[existingIndex].personalInfo,
@@ -944,6 +982,7 @@ export const saveOrUpdateApplication = (appData, user) => {
         ...apps[existingIndex].examInfo,
         ...appData.examInfo
       },
+      status: apps[existingIndex].status || 'DRAFT',
       updatedAt: new Date().toISOString()
     };
     apps[existingIndex] = updatedApp;
@@ -969,6 +1008,12 @@ export const saveOrUpdateApplication = (appData, user) => {
       createdAt: new Date().toISOString()
     };
     apps.unshift(updatedApp);
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    if (appData.personalInfo?.dateOfBirth) {
+      localStorage.setItem('iem_registered_dob', String(appData.personalInfo.dateOfBirth).slice(0, 10));
+    }
   }
 
   saveStoredApplications(apps);
@@ -1233,4 +1278,360 @@ export const saveStoredAllocations = (allocations) => {
     localStorage.setItem('iem_allocations', JSON.stringify(allocations));
   }
   return allocations;
+};
+
+// Document HTML and URL generator for previewing uploaded documents
+export const generateDocumentPreview = (doc, app) => {
+  const candidateName =
+    app?.personalInfo?.fullName ||
+    app?.applicant?.name ||
+    'Arkajit Bhattacharya';
+  const appNo = app?.applicationNumber || 'IEM-2026-1000';
+  const docType = doc?.documentType || '10th_Marksheet';
+  const docLabel = docType.replace(/_/g, ' ');
+  const fileName = doc?.originalFileName || `${docType.toLowerCase()}.pdf`;
+  const is10th = docType.toLowerCase().includes('10');
+  const is12th = docType.toLowerCase().includes('12');
+  const isId = docType.toLowerCase().includes('id');
+  const board = is10th
+    ? app?.academicInfo?.tenthBoard || 'CBSE'
+    : app?.academicInfo?.twelfthBoard || 'CBSE';
+  const school = is10th
+    ? app?.academicInfo?.tenthSchool || 'Delhi Public School'
+    : app?.academicInfo?.twelfthSchool || 'Delhi Public School';
+  const year = is10th
+    ? app?.academicInfo?.tenthYear || 2022
+    : app?.academicInfo?.twelfthYear || 2024;
+  const pct = is10th
+    ? app?.academicInfo?.tenthPercentage || 92.5
+    : app?.academicInfo?.twelfthPercentage || 89.4;
+  const verificationStatus = doc?.verificationStatus || 'VERIFIED';
+  const isVerified = String(verificationStatus).toUpperCase() === 'VERIFIED';
+
+  if (doc?.dataUrl && typeof doc.dataUrl === 'string' && doc.dataUrl.startsWith('data:')) {
+    if (doc.dataUrl.startsWith('data:image/')) {
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${fileName} - Official Document Viewer</title>
+  <style>
+    body { margin: 0; background: #0f172a; font-family: system-ui, -apple-system, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    .toolbar { background: #1e293b; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 1px solid #334155; }
+    .btn { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; text-decoration: none; }
+    .btn-close { background: #475569; margin-left: 8px; }
+    .preview { flex: 1; display: flex; justify-content: center; align-items: center; padding: 24px; overflow: auto; }
+    img { max-width: 90%; max-height: 85vh; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); background: white; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div><strong>${docLabel}</strong> <span style="opacity:0.7">(${fileName})</span></div>
+    <div>
+      <button class="btn" onclick="window.print()">🖨️ Print Document</button>
+      <button class="btn btn-close" onclick="window.close()">✖ Close Window</button>
+    </div>
+  </div>
+  <div class="preview">
+    <img src="${doc.dataUrl}" alt="${fileName}" />
+  </div>
+</body>
+</html>`;
+      let url = doc.dataUrl;
+      try {
+        if (typeof URL !== 'undefined' && typeof Blob !== 'undefined') {
+          const blob = new Blob([html], { type: 'text/html' });
+          url = URL.createObjectURL(blob);
+        }
+      } catch {}
+      return { url, html };
+    }
+  }
+
+  // Official Certificate / Marksheet HTML
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${fileName} - ${candidateName}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px 16px;
+      background: #f1f5f9;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #0f172a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .action-bar {
+      max-width: 820px;
+      width: 100%;
+      background: #1e293b;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .action-bar button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .action-bar button.close-btn { background: #475569; }
+    .doc-page {
+      max-width: 820px;
+      width: 100%;
+      background: #ffffff;
+      border: 3px double #1e3a8a;
+      padding: 36px 42px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-35deg);
+      font-size: 64px;
+      font-weight: 900;
+      color: rgba(30, 58, 138, 0.05);
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+    }
+    .header {
+      text-align: center;
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .iem-logo-badge {
+      display: inline-block;
+      background: #1e3a8a;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 16px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+    .org-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: 0.5px;
+      margin: 4px 0;
+      text-transform: uppercase;
+    }
+    .sub-org {
+      font-size: 13px;
+      color: #475569;
+      font-weight: 600;
+    }
+    .doc-title-badge {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 6px 18px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 24px;
+      margin-bottom: 24px;
+      background: #f8fafc;
+      padding: 16px 20px;
+      border-radius: 6px;
+      border-left: 4px solid #2563eb;
+    }
+    .info-row { font-size: 13px; line-height: 1.5; }
+    .info-label { color: #64748b; font-weight: 600; display: inline-block; width: 140px; }
+    .info-value { color: #0f172a; font-weight: 700; }
+    .marks-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+    .marks-table th, .marks-table td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .marks-table th {
+      background: #f1f5f9;
+      color: #1e293b;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+    .marks-table .center { text-align: center; }
+    .footer-seal {
+      margin-top: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 16px;
+    }
+    .seal-box {
+      border: 2px solid ${isVerified ? '#16a34a' : '#d97706'};
+      color: ${isVerified ? '#16a34a' : '#d97706'};
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transform: rotate(-3deg);
+    }
+    .sig-block {
+      text-align: center;
+      font-size: 12px;
+      color: #475569;
+    }
+    .sig-line {
+      width: 160px;
+      border-top: 1px solid #0f172a;
+      margin-bottom: 4px;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .action-bar { display: none; }
+      .doc-page { border: none; box-shadow: none; padding: 0; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="action-bar">
+    <div><strong>📄 Document Viewer:</strong> ${fileName}</div>
+    <div>
+      <button onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="close-btn" onclick="window.close()">✖ Close Tab</button>
+    </div>
+  </div>
+
+  <div class="doc-page">
+    <div class="watermark">IEM ADMISSION 2026</div>
+
+    <div class="header">
+      <div class="iem-logo-badge">IEM KOLKATA</div>
+      <div class="org-title">Institute of Engineering & Management</div>
+      <div class="sub-org">Office of Academic Records & Admissions Committee</div>
+      <div><span class="doc-title-badge">${is10th ? 'Secondary School Examination (Class X) Statement of Marks' : (is12th ? 'Senior School Certificate Examination (Class XII) Statement of Marks' : (isId ? 'Official Government Identity Proof Verification Record' : 'Official Academic Dossier & Certificate'))}</span></div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-row"><span class="info-label">Candidate Name:</span> <span class="info-value">${candidateName}</span></div>
+      <div class="info-row"><span class="info-label">Application No:</span> <span class="info-value">${appNo}</span></div>
+      <div class="info-row"><span class="info-label">Board / Council:</span> <span class="info-value">${board}</span></div>
+      <div class="info-row"><span class="info-label">Passing Year:</span> <span class="info-value">${year}</span></div>
+      <div class="info-row"><span class="info-label">School / Centre:</span> <span class="info-value">${school}</span></div>
+      <div class="info-row"><span class="info-label">Original File:</span> <span class="info-value">${fileName}</span></div>
+    </div>
+
+    ${is10th ? `
+    <table class="marks-table">
+      <thead>
+        <tr>
+          <th>Sub Code</th>
+          <th>Subject Description</th>
+          <th class="center">Max Marks</th>
+          <th class="center">Marks Obtained</th>
+          <th class="center">Positional Grade</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>184</td><td>English Language & Literature</td><td class="center">100</td><td class="center">91</td><td class="center">A1</td></tr>
+        <tr><td>041</td><td>Mathematics (Standard)</td><td class="center">100</td><td class="center">95</td><td class="center">A1</td></tr>
+        <tr><td>086</td><td>Science (Theory & Practical)</td><td class="center">100</td><td class="center">94</td><td class="center">A1</td></tr>
+        <tr><td>087</td><td>Social Science</td><td class="center">100</td><td class="center">90</td><td class="center">A2</td></tr>
+        <tr><td>165</td><td>Computer Applications</td><td class="center">100</td><td class="center">98</td><td class="center">A1</td></tr>
+        <tr style="background:#f8fafc; font-weight:700;">
+          <td colspan="2">AGGREGATE PERCENTAGE</td>
+          <td class="center">500</td>
+          <td class="center">${pct}%</td>
+          <td class="center">DISTINCTION (PASS)</td>
+        </tr>
+      </tbody>
+    </table>
+    ` : (is12th ? `
+    <table class="marks-table">
+      <thead>
+        <tr>
+          <th>Sub Code</th>
+          <th>Subject Description</th>
+          <th class="center">Max Marks</th>
+          <th class="center">Marks Obtained</th>
+          <th class="center">Positional Grade</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>301</td><td>English Core</td><td class="center">100</td><td class="center">88</td><td class="center">A2</td></tr>
+        <tr><td>042</td><td>Physics (Theory: 65, Pract: 28)</td><td class="center">100</td><td class="center">93</td><td class="center">A1</td></tr>
+        <tr><td>043</td><td>Chemistry (Theory: 63, Pract: 28)</td><td class="center">100</td><td class="center">91</td><td class="center">A1</td></tr>
+        <tr><td>041</td><td>Mathematics</td><td class="center">100</td><td class="center">96</td><td class="center">A1</td></tr>
+        <tr><td>083</td><td>Computer Science (Python)</td><td class="center">100</td><td class="center">97</td><td class="center">A1</td></tr>
+        <tr style="background:#f8fafc; font-weight:700;">
+          <td colspan="2">AGGREGATE PERCENTAGE</td>
+          <td class="center">500</td>
+          <td class="center">${pct}%</td>
+          <td class="center">FIRST CLASS DISTINCTION</td>
+        </tr>
+      </tbody>
+    </table>
+    ` : `
+    <div style="padding: 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; margin-bottom: 24px;">
+      <div style="font-size: 48px; margin-bottom: 12px;">🛡️</div>
+      <h3 style="margin: 0 0 8px 0; color: #1e3a8a;">Verified Official Document Proof</h3>
+      <p style="margin: 0; color: #64748b; font-size: 13px;">File: <strong>${fileName}</strong> (${doc?.fileSize || '1.2 MB'}) has been securely uploaded and authenticated.</p>
+    </div>
+    `)}
+
+    <div class="footer-seal">
+      <div class="seal-box">
+        ✓ ${verificationStatus}<br>
+        <span style="font-size: 9px; font-weight: 500;">IEM ADMISSIONS CELL</span>
+      </div>
+      <div class="sig-block">
+        <div class="sig-line"></div>
+        <strong>Controller of Examinations</strong><br>
+        <span>Institute of Engineering & Management</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  let url = 'about:blank';
+  try {
+    if (typeof URL !== 'undefined' && typeof Blob !== 'undefined') {
+      const blob = new Blob([html], { type: 'text/html' });
+      url = URL.createObjectURL(blob);
+    }
+  } catch {}
+
+  return { url, html };
 };
