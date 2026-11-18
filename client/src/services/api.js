@@ -3,6 +3,8 @@ import {
   DEMO_STUDENT_USER,
   INITIAL_COURSES,
   DEMO_EXAMS,
+  getStoredExams,
+  saveStoredExams,
   DEMO_ALLOCATIONS,
   getStoredCourses,
   saveStoredCourses,
@@ -182,7 +184,20 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     const search = url.searchParams.get('search')?.toLowerCase();
 
     if (statusFilter && statusFilter !== 'ALL') {
-      apps = apps.filter((a) => a.status === statusFilter);
+      if (statusFilter === 'APPROVED') {
+        apps = apps.filter(
+          (a) =>
+            a.status === 'APPROVED' ||
+            a.status === 'DOCUMENT_VERIFIED' ||
+            (a.documents &&
+              a.documents.length > 0 &&
+              a.documents.every((d) => String(d.verificationStatus).toUpperCase() === 'VERIFIED') &&
+              a.status !== 'ALLOCATED' &&
+              a.status !== 'REJECTED')
+        );
+      } else {
+        apps = apps.filter((a) => a.status === statusFilter);
+      }
     }
     if (deptFilter && deptFilter !== 'ALL') {
       apps = apps.filter((a) => a.courseSelection?.department === deptFilter);
@@ -237,12 +252,14 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
       _id: 'alloc-' + Date.now(),
       applicationId: app,
       applicantId: app?.applicant,
+      candidateName: app?.personalInfo?.fullName || app?.applicant?.name || 'Candidate',
+      applicationNumber: app?.applicationNumber || 'IEM-2026-DEMO',
       courseId: targetCourse,
       allocatedCourse: targetCourse,
       department: targetCourse?.department || 'Computer Science & Engineering',
       program: targetCourse?.programName || 'B.Tech Program',
       round: round || 1,
-      seatStatus: seatStatus || 'CONFIRMED',
+      seatStatus: seatStatus || 'PROVISIONALLY_ALLOCATED',
       allocationDate: new Date().toISOString(),
       remarks: remarks || 'Merit Quota Allocation'
     };
@@ -268,19 +285,33 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     const idMatch = endpoint.match(/\/documents\/([^/?]+)\/verify/);
     const docId = idMatch ? idMatch[1] : null;
     const apps = getStoredApplications();
+    let updatedApp = null;
     apps.forEach((a) => {
       if (a.documents) {
         const doc = a.documents.find((d) => d._id === docId);
         if (doc) {
           doc.verificationStatus = parsedBody?.verificationStatus || 'VERIFIED';
           doc.remarks = parsedBody?.remarks || '';
+          updatedApp = a;
         }
       }
     });
+
+    // If all documents are verified, auto-approve application for seat counselling!
+    if (updatedApp && updatedApp.documents && updatedApp.documents.length > 0) {
+      const allVerified = updatedApp.documents.every(
+        (d) => String(d.verificationStatus).toUpperCase() === 'VERIFIED'
+      );
+      if (allVerified && updatedApp.status !== 'ALLOCATED' && updatedApp.status !== 'REJECTED') {
+        updatedApp.status = 'APPROVED';
+      }
+    }
+
     saveStoredApplications(apps);
     return {
       success: true,
-      message: 'Document verification updated successfully'
+      message: 'Document verification updated successfully',
+      application: updatedApp
     };
   }
 
@@ -364,9 +395,33 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
   }
 
   if (endpoint.startsWith('/admin/exams') || endpoint.startsWith('/exams')) {
+    if (method === 'POST' || method === 'PUT') {
+      const exams = getStoredExams();
+      const { applicationId, applicantId, score, rank, examStatus } = parsedBody || {};
+      const targetExam = exams.find(
+        (ex) =>
+          (applicationId && (ex.application === applicationId || ex.applicationId?._id === applicationId || ex._id === applicationId)) ||
+          (applicantId && (ex.applicant?._id === applicantId || ex.applicantId?._id === applicantId))
+      );
+      if (targetExam) {
+        if (score !== undefined) {
+          targetExam.score = Number(score);
+          targetExam.marks = Number(score);
+        }
+        if (rank !== undefined) targetExam.rank = Number(rank);
+        if (examStatus) targetExam.examStatus = examStatus;
+      }
+      saveStoredExams(exams);
+      return {
+        success: true,
+        message: 'Exam score updated successfully',
+        exam: targetExam
+      };
+    }
+
     return {
       success: true,
-      exams: DEMO_EXAMS
+      exams: getStoredExams()
     };
   }
 

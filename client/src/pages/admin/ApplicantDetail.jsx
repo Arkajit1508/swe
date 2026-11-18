@@ -106,19 +106,55 @@ const ApplicantDetail = () => {
       }
 
       if (res && res.success) {
-        setMessage({
-          type: 'success',
-          text: `Document marked as ${verificationStatus} successfully!`
-        });
-
         // Instant local optimistic update for immediate button toggling
+        let allDocsVerified = false;
         setData((prev) => {
           if (!prev) return prev;
           const updatedDocs = (prev.documents || []).map((d) =>
             d._id === docId ? { ...d, verificationStatus, remarks: remark } : d
           );
-          return { ...prev, documents: updatedDocs };
+          allDocsVerified =
+            updatedDocs.length > 0 &&
+            updatedDocs.every(
+              (d) => String(d.verificationStatus).toUpperCase() === 'VERIFIED'
+            );
+          return {
+            ...prev,
+            documents: updatedDocs,
+            application: {
+              ...prev.application,
+              status: allDocsVerified ? 'APPROVED' : prev.application.status
+            }
+          };
         });
+
+        if (verificationStatus === 'VERIFIED') {
+          // If all documents verified, advance application status to APPROVED
+          const currentDocs = data?.documents || [];
+          const otherDocsVerified = currentDocs
+            .filter((d) => d._id !== docId)
+            .every((d) => String(d.verificationStatus).toUpperCase() === 'VERIFIED');
+
+          if (otherDocsVerified) {
+            try {
+              await api.put(`/admin/applications/${id}/status`, { status: 'APPROVED' });
+            } catch {}
+            setMessage({
+              type: 'success',
+              text: 'Document verified! All documents verified — candidate has been approved for seat counselling.'
+            });
+          } else {
+            setMessage({
+              type: 'success',
+              text: 'Document marked as VERIFIED successfully!'
+            });
+          }
+        } else {
+          setMessage({
+            type: 'info',
+            text: 'Document marked as REJECTED.'
+          });
+        }
 
         await fetchApplicant();
       }
@@ -198,9 +234,19 @@ const ApplicantDetail = () => {
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.75rem'
+          gap: '0.75rem',
+          flexWrap: 'wrap'
         }}>
           <StatusBadge status={app?.status} />
+          {(currentStatus === 'APPROVED' || currentStatus === 'COUNSELLING' || (docs.length > 0 && docs.every(d => String(d.verificationStatus).toUpperCase() === 'VERIFIED'))) && currentStatus !== 'ALLOCATED' && (
+            <Link
+              to="/admin/counselling"
+              className="btn btn-primary btn-sm"
+              style={{ fontWeight: '700', boxShadow: '0 2px 4px rgba(37,99,235,0.2)' }}
+            >
+              🏛️ Allocate Seat in Counselling →
+            </Link>
+          )}
         </div>
       </div>
 
@@ -568,7 +614,7 @@ const ApplicantDetail = () => {
                         display: 'flex',
                         gap: '0.5rem'
                       }}>
-                        {doc.verificationStatus !== 'VERIFIED' && (
+                        {String(doc.verificationStatus).toUpperCase() !== 'VERIFIED' && (
                           <button
                             type="button"
                             onClick={() =>
@@ -584,7 +630,7 @@ const ApplicantDetail = () => {
                           </button>
                         )}
 
-                        {doc.verificationStatus !== 'REJECTED' && (
+                        {String(doc.verificationStatus).toUpperCase() !== 'REJECTED' && (
                           <button
                             type="button"
                             onClick={() =>

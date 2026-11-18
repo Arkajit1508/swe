@@ -180,21 +180,44 @@ const CounsellingAlloc = () => {
                 {allocations.map((alloc) => (
                   <tr key={alloc._id}>
                     <td style={{ fontFamily: 'monospace', fontWeight: '700' }}>
-                      {alloc.applicationId?.applicationNumber}
+                      {alloc.applicationId?.applicationNumber || alloc.applicationNumber || '—'}
                     </td>
                     <td>
-                      <strong>{alloc.applicationId?.personalInfo?.fullName || alloc.applicantId?.name}</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{alloc.applicantId?.email}</div>
+                      <strong>
+                        {alloc.applicationId?.personalInfo?.fullName ||
+                          alloc.applicationId?.applicant?.name ||
+                          alloc.applicantId?.name ||
+                          alloc.candidateName ||
+                          'Candidate'}
+                      </strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {alloc.applicantId?.email || alloc.applicationId?.contactInfo?.email || alloc.email || ''}
+                      </div>
                     </td>
                     <td>
-                      <strong>{alloc.courseId?.programName}</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Dept: {alloc.courseId?.department}</div>
+                      <strong>
+                        {alloc.courseId?.programName ||
+                          alloc.allocatedCourse?.programName ||
+                          alloc.program ||
+                          'B.Tech Program'}
+                      </strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Dept:{' '}
+                        {alloc.courseId?.department ||
+                          alloc.allocatedCourse?.department ||
+                          alloc.department ||
+                          'Engineering'}
+                      </div>
                     </td>
-                    <td>Round {alloc.round}</td>
-                    <td>{new Date(alloc.allocationDate).toLocaleDateString()}</td>
+                    <td>Round {alloc.round || 1}</td>
+                    <td>
+                      {alloc.allocationDate
+                        ? new Date(alloc.allocationDate).toLocaleDateString()
+                        : new Date().toLocaleDateString()}
+                    </td>
                     <td>
                       <span className="status-badge status-ALLOCATED">
-                        {alloc.seatStatus}
+                        {alloc.seatStatus || 'PROVISIONALLY_ALLOCATED'}
                       </span>
                     </td>
                     <td style={{ fontSize: '0.85rem' }}>{alloc.remarks || '—'}</td>

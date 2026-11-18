@@ -32,7 +32,7 @@ const ExamManagement = () => {
 
   const openScoreModal = (exam) => {
     setSelectedExam(exam);
-    setScore(exam.score !== undefined ? exam.score : '');
+    setScore(exam.score !== undefined ? exam.score : (exam.marks !== undefined ? exam.marks : ''));
     setRank(exam.rank !== undefined ? exam.rank : '');
     setStatus(exam.examStatus || 'SCHEDULED');
     setModalOpen(true);
@@ -103,21 +103,31 @@ const ExamManagement = () => {
                 {exams.map((ex) => (
                   <tr key={ex._id}>
                     <td style={{ fontFamily: 'monospace', fontWeight: '700' }}>
-                      {ex.admitCardNumber || '—'}
+                      {ex.admitCardNumber || ex.rollNumber || '—'}
                     </td>
                     <td>
-                      <strong>{ex.applicantId?.name}</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ex.applicantId?.email}</div>
+                      <strong>
+                        {ex.applicantId?.name || ex.applicant?.name || ex.personalInfo?.fullName || ex.candidateName || 'Candidate'}
+                      </strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {ex.applicantId?.email || ex.applicant?.email || ex.contactInfo?.email || ''}
+                      </div>
                     </td>
-                    <td>{ex.examName}</td>
+                    <td>{ex.examName || 'IEMJEE 2026'}</td>
                     <td>{ex.examDate ? new Date(ex.examDate).toLocaleDateString() : '—'}</td>
                     <td>
-                      <span className={`status-badge status-${ex.examStatus === 'COMPLETED' ? 'APPROVED' : 'SUBMITTED'}`}>
-                        {ex.examStatus}
+                      <span className={`status-badge status-${(ex.examStatus === 'COMPLETED' || ex.score !== undefined) ? 'APPROVED' : 'SUBMITTED'}`}>
+                        {ex.examStatus || 'COMPLETED'}
                       </span>
                     </td>
-                    <td><strong>{ex.score !== undefined ? ex.score : '—'}</strong></td>
-                    <td><strong style={{ color: 'var(--primary)' }}>{ex.rank ? `#${ex.rank}` : '—'}</strong></td>
+                    <td>
+                      <strong>{ex.score !== undefined ? ex.score : (ex.marks !== undefined ? ex.marks : '—')}</strong>
+                    </td>
+                    <td>
+                      <strong style={{ color: 'var(--primary)' }}>
+                        {ex.rank ? `#${ex.rank}` : '—'}
+                      </strong>
+                    </td>
                     <td>
                       <button
                         onClick={() => openScoreModal(ex)}

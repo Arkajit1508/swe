@@ -460,33 +460,56 @@ export const DEMO_STUDENT_USER = {
 export const getStoredCourses = () => {
   let courses = [...INITIAL_COURSES];
   try {
-    const raw = localStorage.getItem('iem_courses');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) courses = parsed;
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('iem_courses');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) courses = parsed;
+      }
     }
   } catch (e) {
     console.warn('Error reading stored courses:', e);
   }
 
-  // Ensure CSE availableSeats reflects 139 (or less) since Arkajit is enrolled
-  courses = courses.map((c) => {
-    if (
-      c.programName.includes('Computer Science & Engineering') &&
-      !c.programName.includes('Business Systems')
-    ) {
-      const avail = c.availableSeats !== undefined ? Math.min(c.availableSeats, 139) : 139;
-      return { ...c, availableSeats: avail };
+  // Count confirmed allocations to ensure available seats reflect real-time count
+  let allocations = [];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const rawAlloc = localStorage.getItem('iem_allocations');
+      if (rawAlloc) {
+        const parsedAlloc = JSON.parse(rawAlloc);
+        if (Array.isArray(parsedAlloc)) allocations = parsedAlloc;
+      }
     }
-    return c;
+  } catch {}
+
+  // Adjust baseline seats if not explicitly stored
+  courses = courses.map((c) => {
+    // Count how many allocated for this course
+    const allocCount = allocations.filter((al) => {
+      const prog = al.courseId?.programName || al.program || al.allocatedCourse?.programName;
+      return prog && (prog.toLowerCase() === c.programName.toLowerCase() || c.programName.toLowerCase().includes(prog.toLowerCase()));
+    }).length;
+
+    const initMatch = INITIAL_COURSES.find((ic) => ic._id === c._id || ic.programName === c.programName);
+    const baseAvailable = initMatch ? initMatch.availableSeats : (c.availableSeats || c.totalSeats);
+    const calculatedAvail = Math.max(0, baseAvailable - allocCount);
+    
+    // Use the lower of existing availableSeats and calculatedAvail
+    const currentAvail = c.availableSeats !== undefined ? Math.min(c.availableSeats, calculatedAvail) : calculatedAvail;
+    return { ...c, availableSeats: currentAvail };
   });
 
-  localStorage.setItem('iem_courses', JSON.stringify(courses));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('iem_courses', JSON.stringify(courses));
+  }
   return courses;
 };
 
 export const saveStoredCourses = (courses) => {
-  localStorage.setItem('iem_courses', JSON.stringify(courses));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('iem_courses', JSON.stringify(courses));
+  }
   return courses;
 };
 
@@ -513,16 +536,63 @@ export const decrementCourseSeat = (courseIdentifier) => {
 
 // Persistent Registered Users list
 export const getRegisteredUsers = () => {
+  let users = [];
   try {
     const raw = localStorage.getItem('iem_registered_users');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) users = parsed;
     }
   } catch (e) {
     console.warn('Error reading registered users:', e);
   }
-  return [];
+
+  // Ensure default candidate profiles exist
+  const defaultUsers = [
+    {
+      id: INITIAL_APPLICATIONS[0].applicant._id,
+      _id: INITIAL_APPLICATIONS[0].applicant._id,
+      name: INITIAL_APPLICATIONS[0].applicant.name,
+      email: INITIAL_APPLICATIONS[0].applicant.email,
+      phone: INITIAL_APPLICATIONS[0].applicant.phone,
+      dateOfBirth: '2005-01-15',
+      role: 'student',
+      registeredAt: new Date(Date.now() - 5 * 86400000).toISOString()
+    },
+    {
+      id: DEMO_STUDENT_USER._id,
+      _id: DEMO_STUDENT_USER._id,
+      name: DEMO_STUDENT_USER.name,
+      email: DEMO_STUDENT_USER.email,
+      phone: DEMO_STUDENT_USER.phone,
+      dateOfBirth: DEMO_STUDENT_USER.dateOfBirth,
+      role: 'student',
+      registeredAt: new Date(Date.now() - 6 * 86400000).toISOString()
+    },
+    {
+      id: INITIAL_APPLICATIONS[2].applicant._id,
+      _id: INITIAL_APPLICATIONS[2].applicant._id,
+      name: INITIAL_APPLICATIONS[2].applicant.name,
+      email: INITIAL_APPLICATIONS[2].applicant.email,
+      phone: INITIAL_APPLICATIONS[2].applicant.phone,
+      dateOfBirth: '2005-08-22',
+      role: 'student',
+      registeredAt: new Date(Date.now() - 6 * 86400000).toISOString()
+    }
+  ];
+
+  defaultUsers.forEach((def) => {
+    const exists = users.some(
+      (u) =>
+        (u.email && u.email.toLowerCase() === def.email.toLowerCase()) ||
+        (u.name && u.name.toLowerCase() === def.name.toLowerCase())
+    );
+    if (!exists) {
+      users.push(def);
+    }
+  });
+
+  return users;
 };
 
 export const addRegisteredUser = (userData) => {
@@ -992,60 +1062,175 @@ export const DEMO_EXAMS = [
   {
     _id: 'exam-01',
     applicant: INITIAL_APPLICATIONS[0].applicant,
+    applicantId: INITIAL_APPLICATIONS[0].applicant,
+    candidateName: INITIAL_APPLICATIONS[0].applicant.name,
+    personalInfo: INITIAL_APPLICATIONS[0].personalInfo,
     application: INITIAL_APPLICATIONS[0]._id,
+    applicationId: INITIAL_APPLICATIONS[0],
     applicationNumber: 'IEM-2026-1000',
     examName: 'IEMJEE 2026',
     rollNumber: 'IEMJEE-2026-1000',
+    admitCardNumber: 'IEMJEE-2026-1000',
     examDate: '2026-05-15',
     marks: 96,
+    score: 96,
     rank: 98,
     examStatus: 'COMPLETED'
   },
   {
     _id: 'exam-02',
     applicant: INITIAL_APPLICATIONS[1].applicant,
+    applicantId: INITIAL_APPLICATIONS[1].applicant,
+    candidateName: INITIAL_APPLICATIONS[1].applicant.name,
+    personalInfo: INITIAL_APPLICATIONS[1].personalInfo,
     application: INITIAL_APPLICATIONS[1]._id,
+    applicationId: INITIAL_APPLICATIONS[1],
     applicationNumber: 'IEM-2026-1001',
     examName: 'IEMJEE 2026',
     rollNumber: 'IEMJEE-2026-908123',
+    admitCardNumber: 'IEMJEE-2026-908123',
     examDate: '2026-05-15',
     marks: 94,
+    score: 94,
     rank: 142,
     examStatus: 'COMPLETED'
   }
 ];
+
+export const getStoredExams = () => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('iem_exams');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading stored exams:', e);
+  }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('iem_exams', JSON.stringify(DEMO_EXAMS));
+  }
+  return [...DEMO_EXAMS];
+};
+
+export const saveStoredExams = (exams) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('iem_exams', JSON.stringify(exams));
+  }
+  return exams;
+};
 
 export const DEMO_ALLOCATIONS = [
   {
     _id: 'alloc-01',
     applicationId: INITIAL_APPLICATIONS[1],
     applicantId: INITIAL_APPLICATIONS[1].applicant,
+    candidateName: 'Rohan Sharma',
+    applicationNumber: 'IEM-2026-1001',
     courseId: INITIAL_COURSES[0],
     allocatedCourse: INITIAL_COURSES[0],
     department: 'Computer Science & Engineering',
     program: 'B.Tech Computer Science & Engineering',
     round: 1,
     seatStatus: 'PROVISIONALLY_ALLOCATED',
-    allocationDate: new Date(Date.now() - 2 * 86400000).toISOString(),
+    allocationDate: '2026-11-16T10:00:00.000Z',
     remarks: 'Candidate selected B.Tech CSE as 1st preference and confirmed admission.'
+  },
+  {
+    _id: 'alloc-02',
+    applicationId: INITIAL_APPLICATIONS[2],
+    applicantId: INITIAL_APPLICATIONS[2].applicant,
+    candidateName: 'Ananya Sen',
+    applicationNumber: 'IEM-2026-1002',
+    courseId: INITIAL_COURSES[1],
+    allocatedCourse: INITIAL_COURSES[1],
+    department: 'Information Technology',
+    program: 'B.Tech Information Technology',
+    round: 1,
+    seatStatus: 'PROVISIONALLY_ALLOCATED',
+    allocationDate: '2026-11-18T10:00:00.000Z',
+    remarks: 'Merit Quota Allocation'
   }
 ];
 
 export const getStoredAllocations = () => {
+  let allocations = [];
   try {
-    const raw = localStorage.getItem('iem_allocations');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('iem_allocations');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) allocations = parsed;
+      }
     }
   } catch (e) {
     console.warn('Error reading stored allocations:', e);
   }
-  localStorage.setItem('iem_allocations', JSON.stringify(DEMO_ALLOCATIONS));
-  return [...DEMO_ALLOCATIONS];
+
+  if (!allocations || allocations.length === 0) {
+    allocations = [...DEMO_ALLOCATIONS];
+  }
+
+  // Automatic synchronization:
+  // Any application in getStoredApplications with status === 'ALLOCATED' MUST appear in allocations!
+  let apps = [];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const rawApps = localStorage.getItem('iem_applications');
+      if (rawApps) apps = JSON.parse(rawApps);
+    }
+  } catch {}
+  if (!apps || apps.length === 0) apps = INITIAL_APPLICATIONS;
+
+  const courses = [...INITIAL_COURSES];
+
+  apps.forEach((app) => {
+    if (app.status === 'ALLOCATED') {
+      const exists = allocations.some(
+        (al) =>
+          al.applicationNumber === app.applicationNumber ||
+          al.applicationId?.applicationNumber === app.applicationNumber ||
+          (al.applicationId?._id && al.applicationId._id === app._id)
+      );
+
+      if (!exists) {
+        const targetCourse =
+          courses.find(
+            (c) =>
+              c._id === app.courseSelection?.courseId ||
+              c.programName.toLowerCase() === (app.courseSelection?.program || '').toLowerCase()
+          ) || courses[0];
+
+        allocations.unshift({
+          _id: 'alloc-' + (app._id || Date.now()),
+          applicationId: app,
+          applicantId: app.applicant,
+          candidateName: app.personalInfo?.fullName || app.applicant?.name || 'Candidate',
+          applicationNumber: app.applicationNumber,
+          courseId: targetCourse,
+          allocatedCourse: targetCourse,
+          department: targetCourse?.department || app.courseSelection?.department || 'Engineering',
+          program: targetCourse?.programName || app.courseSelection?.program || 'B.Tech Program',
+          round: 1,
+          seatStatus: 'PROVISIONALLY_ALLOCATED',
+          allocationDate: new Date().toISOString(),
+          remarks: 'Confirmed seat allotment upon document verification.'
+        });
+      }
+    }
+  });
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('iem_allocations', JSON.stringify(allocations));
+  }
+  return allocations;
 };
 
 export const saveStoredAllocations = (allocations) => {
-  localStorage.setItem('iem_allocations', JSON.stringify(allocations));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('iem_allocations', JSON.stringify(allocations));
+  }
   return allocations;
 };
