@@ -9,13 +9,15 @@ import {
   decrementCourseSeat,
   getStoredApplications,
   saveStoredApplications,
+  getRegisteredUsers,
+  addRegisteredUser,
   getApplicationForUser,
   saveOrUpdateApplication,
   submitStudentApplication,
   getDashboardStatsFromStored
 } from './demoData';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://iem-admission-api.onrender.com/api';
 
 // Intercept / handle responses locally so registered candidates and seat decrements persist immediately
 const handleAppLogic = (endpoint, method = 'GET', body = null) => {
@@ -248,7 +250,7 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     };
   }
 
-  // 10. MOCK PAYMENT
+  // 10. MOCK PAYMENT & PAYMENT STATUS
   if (endpoint.startsWith('/payments/mock') && method === 'POST') {
     const apps = getStoredApplications();
     const app = getApplicationForUser(user);
@@ -268,10 +270,90 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     };
   }
 
+  if (endpoint.startsWith('/payments') && method === 'GET') {
+    const app = getApplicationForUser(user);
+    return {
+      success: true,
+      payment: {
+        _id: 'pay-01',
+        amount: 500,
+        paymentStatus: app?.paymentStatus || 'PAID',
+        transactionId: 'TXN-IEM-2026-ONLINE',
+        paymentMethod: 'UPI'
+      }
+    };
+  }
+
+  if (endpoint.startsWith('/documents/application') && method === 'GET') {
+    const app = getApplicationForUser(user);
+    return {
+      success: true,
+      documents: app?.documents || []
+    };
+  }
+
   if (endpoint.startsWith('/admin/exams') || endpoint.startsWith('/exams')) {
     return {
       success: true,
       exams: DEMO_EXAMS
+    };
+  }
+
+  if (endpoint.startsWith('/notifications')) {
+    if (method === 'PUT') {
+      return { success: true, message: 'Notification marked as read' };
+    }
+    return {
+      success: true,
+      count: 2,
+      notifications: [
+        {
+          _id: 'notif-01',
+          title: 'Application Submitted & Recorded',
+          message: 'Your admission dossier has been received and queued for committee verification.',
+          type: 'SUCCESS',
+          isRead: false,
+          createdAt: new Date().toISOString()
+        },
+        {
+          _id: 'notif-02',
+          title: 'Application Fee Confirmed',
+          message: 'Application fee of ₹500 confirmed via online transaction.',
+          type: 'INFO',
+          isRead: true,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+  }
+
+  if (endpoint.startsWith('/counselling/me')) {
+    const app = getApplicationForUser(user);
+    return {
+      success: true,
+      allocation: {
+        _id: 'alloc-me',
+        applicationId: app,
+        courseId: {
+          programName: app?.courseSelection?.program || 'B.Tech Computer Science & Engineering',
+          department: app?.courseSelection?.department || 'Computer Science & Engineering'
+        },
+        seatStatus: 'PROVISIONALLY_ALLOCATED',
+        round: 1
+      }
+    };
+  }
+
+  if (endpoint.startsWith('/auth/register') && method === 'POST') {
+    let parsed = body;
+    if (typeof body === 'string') {
+      try { parsed = JSON.parse(body); } catch {}
+    }
+    const newUser = addRegisteredUser(parsed);
+    return {
+      success: true,
+      token: 'token-reg-' + Date.now(),
+      user: newUser
     };
   }
 

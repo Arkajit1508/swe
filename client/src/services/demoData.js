@@ -89,26 +89,26 @@ export const INITIAL_COURSES = [
 
 export const INITIAL_APPLICATIONS = [
   {
-    _id: 'app-arkajit-1000',
+    _id: 'app-arkajit-bhattacharya-1000',
     applicationNumber: 'IEM-2026-1000',
     applicant: {
-      _id: 'user-arkajit-001',
-      name: 'Arkajit',
-      email: 'arkajit@iem.edu',
+      _id: 'usr-arkajit-bhattacharya',
+      name: 'Arkajit Bhattacharya',
+      email: 'arkajit.bhattacharya@iem.edu',
       phone: '9876543210'
     },
     personalInfo: {
-      fullName: 'Arkajit',
+      fullName: 'Arkajit Bhattacharya',
       dateOfBirth: '2005-01-15',
       gender: 'Male',
       category: 'General',
       nationality: 'Indian',
       bloodGroup: 'B+',
       guardianName: 'Guardian',
-      guardianPhone: '9876543211'
+      guardianPhone: '9830112233'
     },
     contactInfo: {
-      email: 'arkajit@iem.edu',
+      email: 'arkajit.bhattacharya@iem.edu',
       phone: '9876543210',
       addressLine: 'Sector V, Salt Lake',
       city: 'Kolkata',
@@ -409,17 +409,53 @@ export const DEMO_STUDENT_USER = {
 
 // Course Seats State Management
 export const getStoredCourses = () => {
+  let courses = [...INITIAL_COURSES];
   try {
     const raw = localStorage.getItem('iem_courses');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) courses = parsed;
     }
   } catch (e) {
     console.warn('Error reading stored courses:', e);
   }
-  localStorage.setItem('iem_courses', JSON.stringify(INITIAL_COURSES));
-  return INITIAL_COURSES;
+
+  // Count how many submitted/allocated applicants there are for each course
+  let apps = [];
+  try {
+    const rawApps = localStorage.getItem('iem_applications');
+    if (rawApps) {
+      const parsedApps = JSON.parse(rawApps);
+      if (Array.isArray(parsedApps)) apps = parsedApps;
+    }
+  } catch {}
+
+  // Recalculate availableSeats dynamically so each applicant/allocation decrements the seat count
+  courses = courses.map((c) => {
+    const takenSeats = apps.filter((a) => {
+      const prog = (a.courseSelection?.program || a.courseSelection?.courseId || '').toLowerCase();
+      const cName = c.programName.toLowerCase();
+      const matches =
+        prog.includes(cName) ||
+        cName.includes(prog) ||
+        String(a.courseSelection?.courseId) === String(c._id);
+      return matches && a.status !== 'DRAFT';
+    }).length;
+
+    // Minimum 1 seat taken for CSE (Arkajit / Rohan)
+    const minTaken = c.programName.includes('Computer Science & Engineering') && !c.programName.includes('Business Systems') ? 1 : 0;
+    const effectiveTaken = Math.max(minTaken, takenSeats);
+    const calculatedAvailable = Math.max(0, c.totalSeats - effectiveTaken);
+    const existingAvailable = c.availableSeats !== undefined ? c.availableSeats : calculatedAvailable;
+
+    return {
+      ...c,
+      availableSeats: Math.min(existingAvailable, calculatedAvailable)
+    };
+  });
+
+  localStorage.setItem('iem_courses', JSON.stringify(courses));
+  return courses;
 };
 
 export const saveStoredCourses = (courses) => {
@@ -442,9 +478,180 @@ export const decrementCourseSeat = (courseIdentifier) => {
   if (course && course.availableSeats > 0) {
     course.availableSeats -= 1;
     saveStoredCourses(courses);
-    console.log(`[Seats Updated] ${course.programName} remaining available seats: ${course.availableSeats}`);
+    console.log('[Seats Updated] ' + course.programName + ' remaining available seats: ' + course.availableSeats);
   }
+
   return courses;
+};
+
+// Persistent Registered Users list
+export const getRegisteredUsers = () => {
+  try {
+    const raw = localStorage.getItem('iem_registered_users');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.warn('Error reading registered users:', e);
+  }
+  return [];
+};
+
+export const addRegisteredUser = (userData) => {
+  if (!userData) return null;
+  const users = getRegisteredUsers();
+  const existingIdx = users.findIndex(
+    (u) =>
+      (userData.email && u.email?.toLowerCase() === userData.email.toLowerCase()) ||
+      (userData.name && u.name?.toLowerCase() === userData.name.toLowerCase())
+  );
+
+  const newUser = {
+    id: userData.id || userData._id || 'usr-' + Date.now(),
+    _id: userData.id || userData._id || 'usr-' + Date.now(),
+    name: userData.name || 'Registered Applicant',
+    email: userData.email || '',
+    phone: userData.phone || '9876543210',
+    dateOfBirth: userData.dateOfBirth || '',
+    role: 'student',
+    registeredAt: new Date().toISOString()
+  };
+
+  if (existingIdx >= 0) {
+    users[existingIdx] = { ...users[existingIdx], ...newUser };
+  } else {
+    users.unshift(newUser);
+  }
+
+  localStorage.setItem('iem_registered_users', JSON.stringify(users));
+
+  // Automatically create and sync application in store so admin sees them immediately!
+  createApplicationForRegisteredUser(newUser);
+
+  return newUser;
+};
+
+export const createApplicationForRegisteredUser = (user) => {
+  if (!user) return null;
+  let apps = [];
+  try {
+    const raw = localStorage.getItem('iem_applications');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) apps = parsed;
+    }
+  } catch {}
+  if (!apps || apps.length === 0) {
+    apps = [...INITIAL_APPLICATIONS];
+  }
+
+  // Check if this registered user already exists in apps
+  const existing = apps.find(
+    (a) =>
+      (a.applicant?._id && String(a.applicant._id) === String(user.id || user._id)) ||
+      (a.applicant?.email && user.email && a.applicant.email.toLowerCase() === user.email.toLowerCase()) ||
+      (a.contactInfo?.email && user.email && a.contactInfo.email.toLowerCase() === user.email.toLowerCase()) ||
+      (a.applicant?.name && user.name && a.applicant.name.toLowerCase() === user.name.toLowerCase()) ||
+      (a.personalInfo?.fullName && user.name && a.personalInfo.fullName.toLowerCase() === user.name.toLowerCase())
+  );
+
+  if (existing) {
+    if (user.name) {
+      existing.applicant.name = user.name;
+      existing.personalInfo.fullName = user.name;
+    }
+    if (user.email) {
+      existing.applicant.email = user.email;
+      existing.contactInfo.email = user.email;
+    }
+    if (user.phone) {
+      existing.applicant.phone = user.phone;
+      existing.contactInfo.phone = user.phone;
+    }
+    saveStoredApplications(apps);
+    return existing;
+  }
+
+  // Create new applicant dossier record
+  const appNo = 'IEM-2026-' + Math.floor(1000 + Math.random() * 9000);
+  const newApp = {
+    _id: 'app-' + (user.id || user._id || Date.now()),
+    applicationNumber: appNo,
+    applicant: {
+      _id: user.id || user._id || ('usr-' + Date.now()),
+      name: user.name || 'Applicant',
+      email: user.email || '',
+      phone: user.phone || '9876543210'
+    },
+    personalInfo: {
+      fullName: user.name || 'Applicant',
+      dateOfBirth: user.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '2005-01-15',
+      gender: 'Male',
+      category: 'General',
+      nationality: 'Indian',
+      bloodGroup: 'B+',
+      guardianName: 'Parent / Guardian',
+      guardianPhone: '9830112233'
+    },
+    contactInfo: {
+      email: user.email || '',
+      phone: user.phone || '9876543210',
+      addressLine: 'Sector V, Salt Lake',
+      city: 'Kolkata',
+      state: 'West Bengal',
+      pinCode: '700091'
+    },
+    academicInfo: {
+      tenthBoard: 'CBSE',
+      tenthSchool: 'Delhi Public School',
+      tenthYear: 2022,
+      tenthPercentage: 92.5,
+      twelfthBoard: 'CBSE',
+      twelfthSchool: 'Delhi Public School',
+      twelfthYear: 2024,
+      twelfthPercentage: 89.4,
+      stream: 'Science (PCM)'
+    },
+    courseSelection: {
+      department: 'Computer Science & Engineering',
+      program: 'B.Tech Computer Science & Engineering',
+      courseId: '6af306abd66f6850c18c2ca4'
+    },
+    examInfo: {
+      examName: 'IEMJEE 2026',
+      rollNumber: 'IEMJEE-2026-' + Math.floor(10000 + Math.random() * 90000),
+      rankOrScore: 98
+    },
+    status: 'SUBMITTED',
+    paymentStatus: 'PAID',
+    documents: [
+      {
+        _id: 'doc-' + Date.now() + '-1',
+        documentType: '10th_Marksheet',
+        originalFileName: (user.name || 'applicant').toLowerCase().replace(/\s+/g, '_') + '_class10.pdf',
+        fileSize: '1.2 MB',
+        verificationStatus: 'PENDING'
+      },
+      {
+        _id: 'doc-' + Date.now() + '-2',
+        documentType: '12th_Marksheet',
+        originalFileName: (user.name || 'applicant').toLowerCase().replace(/\s+/g, '_') + '_class12.pdf',
+        fileSize: '1.4 MB',
+        verificationStatus: 'PENDING'
+      }
+    ],
+    createdAt: new Date().toISOString(),
+    submittedAt: new Date().toISOString()
+  };
+
+  apps.unshift(newApp);
+  saveStoredApplications(apps);
+
+  // Automatically decrement course seat for the chosen program
+  decrementCourseSeat('B.Tech Computer Science & Engineering');
+
+  return newApp;
 };
 
 // Application State Management
@@ -463,11 +670,12 @@ export const getStoredApplications = () => {
     apps = [...INITIAL_APPLICATIONS];
   }
 
-  // Ensure Arkajit is always present at the top of the applications list
-  const arkajitIndex = apps.findIndex((a) =>
-    a.applicant?.name?.toLowerCase().includes('arkajit') ||
-    a.personalInfo?.fullName?.toLowerCase().includes('arkajit') ||
-    a.contactInfo?.email?.toLowerCase().includes('arkajit')
+  // 1. Ensure Arkajit Bhattacharya is explicitly present
+  const arkajitApp = apps.find(
+    (a) =>
+      a.applicant?.name?.toLowerCase().includes('arkajit') ||
+      a.personalInfo?.fullName?.toLowerCase().includes('arkajit') ||
+      a.contactInfo?.email?.toLowerCase().includes('arkajit')
   );
 
   const currentUserRaw = localStorage.getItem('iem_user');
@@ -478,33 +686,43 @@ export const getStoredApplications = () => {
     } catch {}
   }
 
-  if (arkajitIndex === -1) {
-    const arkajitName = currentUser?.name?.toLowerCase().includes('arkajit') ? currentUser.name : 'Arkajit';
-    const arkajitEmail = currentUser?.email?.toLowerCase().includes('arkajit') ? currentUser.email : (currentUser?.email || 'arkajit@iem.edu');
-    const arkajitPhone = currentUser?.phone || '9876543210';
-
-    const arkajitApp = {
-      _id: 'app-arkajit-1000',
+  if (arkajitApp) {
+    arkajitApp.applicant.name = 'Arkajit Bhattacharya';
+    arkajitApp.personalInfo.fullName = 'Arkajit Bhattacharya';
+    if (!arkajitApp.status || arkajitApp.status === 'DRAFT') {
+      arkajitApp.status = 'SUBMITTED';
+    }
+    arkajitApp.paymentStatus = 'PAID';
+    if (!arkajitApp.courseSelection?.program) {
+      arkajitApp.courseSelection = {
+        department: 'Computer Science & Engineering',
+        program: 'B.Tech Computer Science & Engineering',
+        courseId: '6af306abd66f6850c18c2ca4'
+      };
+    }
+  } else {
+    apps.unshift({
+      _id: 'app-arkajit-bhattacharya-1000',
       applicationNumber: 'IEM-2026-1000',
       applicant: {
-        _id: currentUser?.id || currentUser?._id || 'user-arkajit-001',
-        name: arkajitName,
-        email: arkajitEmail,
-        phone: arkajitPhone
+        _id: 'usr-arkajit-bhattacharya',
+        name: 'Arkajit Bhattacharya',
+        email: currentUser?.name?.toLowerCase().includes('arkajit') ? currentUser.email : 'arkajit.bhattacharya@iem.edu',
+        phone: currentUser?.phone || '9876543210'
       },
       personalInfo: {
-        fullName: arkajitName,
+        fullName: 'Arkajit Bhattacharya',
         dateOfBirth: currentUser?.dateOfBirth ? String(currentUser.dateOfBirth).slice(0, 10) : '2005-01-15',
         gender: 'Male',
         category: 'General',
         nationality: 'Indian',
         bloodGroup: 'B+',
         guardianName: 'Guardian',
-        guardianPhone: '9876543211'
+        guardianPhone: '9830112233'
       },
       contactInfo: {
-        email: arkajitEmail,
-        phone: arkajitPhone,
+        email: currentUser?.name?.toLowerCase().includes('arkajit') ? currentUser.email : 'arkajit.bhattacharya@iem.edu',
+        phone: currentUser?.phone || '9876543210',
         addressLine: 'Sector V, Salt Lake',
         city: 'Kolkata',
         state: 'West Bengal',
@@ -551,18 +769,81 @@ export const getStoredApplications = () => {
       ],
       createdAt: new Date().toISOString(),
       submittedAt: new Date().toISOString()
-    };
-
-    apps.unshift(arkajitApp);
-  } else if (currentUser?.name?.toLowerCase().includes('arkajit')) {
-    // Sync with currently logged-in Arkajit profile
-    apps[arkajitIndex].applicant.name = currentUser.name;
-    apps[arkajitIndex].personalInfo.fullName = currentUser.name;
-    if (currentUser.email) {
-      apps[arkajitIndex].applicant.email = currentUser.email;
-      apps[arkajitIndex].contactInfo.email = currentUser.email;
-    }
+    });
   }
+
+  // 2. Sync all registered users from iem_registered_users into the application list
+  const registeredUsers = getRegisteredUsers();
+  registeredUsers.forEach((user) => {
+    const exists = apps.some(
+      (a) =>
+        (a.applicant?._id && String(a.applicant._id) === String(user.id || user._id)) ||
+        (a.applicant?.email && a.applicant.email.toLowerCase() === user.email?.toLowerCase()) ||
+        (a.contactInfo?.email && a.contactInfo.email.toLowerCase() === user.email?.toLowerCase()) ||
+        (a.applicant?.name && a.applicant.name.toLowerCase() === user.name?.toLowerCase()) ||
+        (a.personalInfo?.fullName && a.personalInfo.fullName.toLowerCase() === user.name?.toLowerCase())
+    );
+    if (!exists) {
+      apps.unshift({
+        _id: 'app-' + (user.id || user._id || Date.now()),
+        applicationNumber: 'IEM-2026-' + Math.floor(1000 + Math.random() * 9000),
+        applicant: {
+          _id: user.id || user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '9876543210'
+        },
+        personalInfo: {
+          fullName: user.name,
+          dateOfBirth: user.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '2005-01-15',
+          gender: 'Male',
+          category: 'General',
+          nationality: 'Indian'
+        },
+        contactInfo: {
+          email: user.email,
+          phone: user.phone || '9876543210',
+          addressLine: 'Salt Lake',
+          city: 'Kolkata',
+          state: 'West Bengal',
+          pinCode: '700091'
+        },
+        academicInfo: {
+          tenthBoard: 'CBSE',
+          tenthSchool: 'High School',
+          tenthYear: 2022,
+          tenthPercentage: 88.0,
+          twelfthBoard: 'CBSE',
+          twelfthSchool: 'High School',
+          twelfthYear: 2024,
+          twelfthPercentage: 86.5,
+          stream: 'Science (PCM)'
+        },
+        courseSelection: {
+          department: 'Computer Science & Engineering',
+          program: 'B.Tech Computer Science & Engineering',
+          courseId: '6af306abd66f6850c18c2ca4'
+        },
+        status: 'SUBMITTED',
+        paymentStatus: 'PAID',
+        documents: [],
+        createdAt: user.registeredAt || new Date().toISOString(),
+        submittedAt: new Date().toISOString()
+      });
+    }
+  });
+
+  // 3. Ensure all base initial applications are preserved
+  INITIAL_APPLICATIONS.forEach((baseApp) => {
+    const exists = apps.some(
+      (a) =>
+        a.applicationNumber === baseApp.applicationNumber ||
+        (a.applicant?.name && a.applicant.name.toLowerCase() === baseApp.applicant?.name?.toLowerCase())
+    );
+    if (!exists) {
+      apps.push(baseApp);
+    }
+  });
 
   localStorage.setItem('iem_applications', JSON.stringify(apps));
   return apps;
@@ -577,6 +858,17 @@ export const getApplicationForUser = (user) => {
   if (!user) return null;
   const apps = getStoredApplications();
 
+  // If user is Arkajit or Arkajit Bhattacharya
+  if (user.name?.toLowerCase().includes('arkajit') || user.email?.toLowerCase().includes('arkajit')) {
+    const arkajitApp = apps.find(
+      (a) =>
+        a.applicant?.name?.toLowerCase().includes('arkajit') ||
+        a.personalInfo?.fullName?.toLowerCase().includes('arkajit') ||
+        a.contactInfo?.email?.toLowerCase().includes('arkajit')
+    );
+    if (arkajitApp) return arkajitApp;
+  }
+
   // If logged in as Rohan
   if (user.email === 'rohan.sharma@example.com') {
     return apps.find((a) => a.applicant?.email === 'rohan.sharma@example.com') || apps[0];
@@ -587,68 +879,13 @@ export const getApplicationForUser = (user) => {
     (a) =>
       (a.applicant?._id && String(a.applicant._id) === String(user.id || user._id)) ||
       (a.applicant?.email && a.applicant.email.toLowerCase() === user.email?.toLowerCase()) ||
-      (a.contactInfo?.email && a.contactInfo.email.toLowerCase() === user.email?.toLowerCase())
+      (a.contactInfo?.email && a.contactInfo.email.toLowerCase() === user.email?.toLowerCase()) ||
+      (a.applicant?.name && a.applicant.name.toLowerCase() === user.name?.toLowerCase()) ||
+      (a.personalInfo?.fullName && a.personalInfo.fullName.toLowerCase() === user.name?.toLowerCase())
   );
 
   if (!found) {
-    const randomAppNo = `IEM-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newApp = {
-      _id: `app-user-${user.id || user._id || Date.now()}`,
-      applicationNumber: randomAppNo,
-      applicant: {
-        _id: user.id || user._id || `usr-${Date.now()}`,
-        name: user.name || 'Registered Applicant',
-        email: user.email || '',
-        phone: user.phone || ''
-      },
-      personalInfo: {
-        fullName: user.name || '',
-        dateOfBirth: user.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '',
-        gender: 'Male',
-        category: 'General',
-        nationality: 'Indian',
-        bloodGroup: '',
-        guardianName: '',
-        guardianPhone: ''
-      },
-      contactInfo: {
-        email: user.email || '',
-        phone: user.phone || '',
-        addressLine: '',
-        city: 'Kolkata',
-        state: 'West Bengal',
-        pinCode: ''
-      },
-      academicInfo: {
-        tenthBoard: 'CBSE',
-        tenthSchool: '',
-        tenthYear: 2022,
-        tenthPercentage: '',
-        twelfthBoard: 'CBSE',
-        twelfthSchool: '',
-        twelfthYear: 2024,
-        twelfthPercentage: '',
-        stream: 'Science (PCM)'
-      },
-      courseSelection: {
-        department: '',
-        program: '',
-        courseId: ''
-      },
-      examInfo: {
-        examName: 'IEMJEE 2026',
-        rollNumber: '',
-        rankOrScore: ''
-      },
-      status: 'DRAFT',
-      paymentStatus: 'PAID',
-      documents: [],
-      createdAt: new Date().toISOString()
-    };
-
-    apps.unshift(newApp);
-    saveStoredApplications(apps);
-    return newApp;
+    return createApplicationForRegisteredUser(user);
   }
 
   return found;
@@ -718,7 +955,7 @@ export const saveOrUpdateApplication = (appData, user) => {
       academicInfo: appData.academicInfo || {},
       courseSelection: appData.courseSelection || {},
       examInfo: appData.examInfo || {},
-      status: appData.status || 'DRAFT',
+      status: appData.status || 'SUBMITTED',
       paymentStatus: appData.paymentStatus || 'PAID',
       documents: [],
       createdAt: new Date().toISOString()
@@ -743,7 +980,6 @@ export const submitStudentApplication = (appId, user) => {
     app.paymentStatus = 'PAID';
     app.submittedAt = new Date().toISOString();
 
-    // Reduce available seats by 1 for the selected course
     const courseId = app.courseSelection?.courseId || app.courseSelection?.program;
     if (courseId) {
       decrementCourseSeat(courseId);
@@ -818,6 +1054,18 @@ export const DEMO_EXAMS = [
     _id: 'exam-01',
     applicant: INITIAL_APPLICATIONS[0].applicant,
     application: INITIAL_APPLICATIONS[0]._id,
+    applicationNumber: 'IEM-2026-1000',
+    examName: 'IEMJEE 2026',
+    rollNumber: 'IEMJEE-2026-1000',
+    examDate: '2026-05-15',
+    marks: 96,
+    rank: 98,
+    examStatus: 'COMPLETED'
+  },
+  {
+    _id: 'exam-02',
+    applicant: INITIAL_APPLICATIONS[1].applicant,
+    application: INITIAL_APPLICATIONS[1]._id,
     applicationNumber: 'IEM-2026-1001',
     examName: 'IEMJEE 2026',
     rollNumber: 'IEMJEE-2026-908123',
@@ -825,26 +1073,14 @@ export const DEMO_EXAMS = [
     marks: 94,
     rank: 142,
     examStatus: 'COMPLETED'
-  },
-  {
-    _id: 'exam-02',
-    applicant: INITIAL_APPLICATIONS[1].applicant,
-    application: INITIAL_APPLICATIONS[1]._id,
-    applicationNumber: 'IEM-2026-1002',
-    examName: 'WBJEE 2026',
-    rollNumber: 'WBJEE-2026-445129',
-    examDate: '2026-04-28',
-    marks: 88,
-    rank: 389,
-    examStatus: 'COMPLETED'
   }
 ];
 
 export const DEMO_ALLOCATIONS = [
   {
     _id: 'alloc-01',
-    applicant: INITIAL_APPLICATIONS[0].applicant,
-    application: INITIAL_APPLICATIONS[0],
+    applicant: INITIAL_APPLICATIONS[1].applicant,
+    application: INITIAL_APPLICATIONS[1],
     allocatedCourse: INITIAL_COURSES[0],
     department: 'Computer Science & Engineering',
     program: 'B.Tech Computer Science & Engineering',

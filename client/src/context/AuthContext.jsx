@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
-import { DEMO_ADMIN_USER, DEMO_STUDENT_USER, getApplicationForUser } from '../services/demoData';
+import {
+  DEMO_ADMIN_USER,
+  DEMO_STUDENT_USER,
+  getApplicationForUser,
+  addRegisteredUser
+} from '../services/demoData';
 
 const AuthContext = createContext(null);
 
@@ -146,6 +151,8 @@ export const AuthProvider = ({ children }) => {
         ...data.user,
         dateOfBirth: data.user?.dateOfBirth || formData.dateOfBirth || ''
       };
+      // Immediately register applicant in persistent store for instant admin visibility
+      addRegisteredUser(userWithDob);
       setToken(data.token);
       setUser(userWithDob);
       localStorage.setItem('iem_token', data.token);
@@ -153,7 +160,7 @@ export const AuthProvider = ({ children }) => {
       if (formData.dateOfBirth) {
         localStorage.setItem('iem_registered_dob', formData.dateOfBirth);
       }
-      // Initialize application in persistent store
+      // Ensure application dossier exists in persistent store
       getApplicationForUser(userWithDob);
       return userWithDob;
     }
