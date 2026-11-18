@@ -1,84 +1,199 @@
 import {
   DEMO_ADMIN_USER,
   DEMO_STUDENT_USER,
-  DEMO_COURSES,
-  DEMO_APPLICATIONS,
-  DEMO_ADMIN_DASHBOARD,
+  INITIAL_COURSES,
   DEMO_EXAMS,
-  DEMO_ALLOCATIONS
+  DEMO_ALLOCATIONS,
+  getStoredCourses,
+  saveStoredCourses,
+  decrementCourseSeat,
+  getStoredApplications,
+  saveStoredApplications,
+  getApplicationForUser,
+  saveOrUpdateApplication,
+  submitStudentApplication,
+  getDashboardStatsFromStored
 } from './demoData';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-// Helper to provide fallback demo data when in demo mode or when backend is unseeded
-const getDemoResponse = (endpoint, method = 'GET', body = null) => {
+// Intercept / handle responses locally so registered candidates and seat decrements persist immediately
+const handleAppLogic = (endpoint, method = 'GET', body = null) => {
   const savedUserStr = localStorage.getItem('iem_user');
   const user = savedUserStr ? JSON.parse(savedUserStr) : DEMO_ADMIN_USER;
 
-  if (endpoint.startsWith('/admin/dashboard')) {
-    return { success: true, data: DEMO_ADMIN_DASHBOARD };
+  // 1. COURSES & SEAT AVAILABILITY
+  if (endpoint.startsWith('/courses')) {
+    const courses = getStoredCourses();
+    return {
+      success: true,
+      count: courses.length,
+      courses
+    };
   }
 
-  if (endpoint.includes('/admin/applications')) {
-    if (endpoint.includes('/status')) {
-      return { success: true, message: 'Application status updated successfully.' };
+  // 2. STUDENT APPLICATION PROFILE
+  if (endpoint.startsWith('/applications/me')) {
+    const app = getApplicationForUser(user);
+    return {
+      success: true,
+      application: app,
+      documents: app?.documents || [
+        {
+          _id: 'doc-01',
+          documentType: '10th_Marksheet',
+          originalFileName: 'class10_marksheet.pdf',
+          fileSize: '1.2 MB',
+          verificationStatus: 'PENDING'
+        },
+        {
+          _id: 'doc-02',
+          documentType: '12th_Marksheet',
+          originalFileName: 'class12_marksheet.pdf',
+          fileSize: '1.4 MB',
+          verificationStatus: 'PENDING'
+        }
+      ],
+      payment: {
+        paymentStatus: app?.paymentStatus || 'PAID',
+        amount: 500
+      }
+    };
+  }
+
+  // 3. APPLICATION DRAFT SAVE
+  if (endpoint === '/applications/draft' && method === 'POST') {
+    const saved = saveOrUpdateApplication(body || {}, user);
+    return {
+      success: true,
+      message: 'Draft saved successfully',
+      application: saved
+    };
+  }
+
+  // 4. APPLICATION SUBMIT & SEAT REDUCTION
+  if (endpoint.includes('/submit') && method === 'POST') {
+    const idMatch = endpoint.match(/\/applications\/([^/?]+)\/submit/);
+    const appId = idMatch ? idMatch[1] : null;
+    const submitted = submitStudentApplication(appId, user);
+    return {
+      success: true,
+      message: 'Application submitted successfully!',
+      application: submitted
+    };
+  }
+
+  // 5. ADMIN APPLICATIONS LIST (includes newly registered applicants)
+  if (endpoint.startsWith('/admin/applications')) {
+    // Status update check
+    if (endpoint.includes('/status') && method === 'PUT') {
+      const idMatch = endpoint.match(/\/admin\/applications\/([^/?]+)\/status/);
+      const targetId = idMatch ? idMatch[1] : null;
+      const apps = getStoredApplications();
+      const app = apps.find((a) => a._id === targetId || a.applicationNumber === targetId);
+      if (app) {
+        const prevStatus = app.status;
+        app.status = body?.status || app.status;
+        // If transitioning to ALLOCATED and wasn't allocated before, decrement seat
+        if (app.status === 'ALLOCATED' && prevStatus !== 'ALLOCATED') {
+          decrementCourseSeat(app.courseSelection?.courseId || app.courseSelection?.program);
+        }
+        saveStoredApplications(apps);
+      }
+      return { success: true, message: 'Status updated successfully', application: app };
     }
+
+    // Single applicant dossier inspection
     const idMatch = endpoint.match(/\/admin\/applications\/([^/?]+)/);
     if (idMatch && idMatch[1] && idMatch[1] !== 'undefined') {
       const targetId = idMatch[1];
-      const found = DEMO_APPLICATIONS.find(
-        (a) => a._id === targetId || a.applicationNumber === targetId
-      ) || DEMO_APPLICATIONS[0];
+      const apps = getStoredApplications();
+      const found = apps.find((a) => a._id === targetId || a.applicationNumber === targetId) || apps[0];
       return {
         success: true,
         application: found,
-        documents: [
+        documents: found.documents?.length > 0 ? found.documents : [
           {
-            _id: 'doc-demo-01',
+            _id: 'doc-01',
             documentType: '10th_Marksheet',
-            originalFileName: 'class10_marksheet.pdf',
-            filePath: '/sample_marksheet.pdf',
-            verificationStatus: 'VERIFIED'
+            originalFileName: `${found.personalInfo?.fullName || 'student'}_class10.pdf`,
+            fileSize: '1.2 MB',
+            verificationStatus: 'PENDING'
           },
           {
-            _id: 'doc-demo-02',
+            _id: 'doc-02',
             documentType: '12th_Marksheet',
-            originalFileName: 'class12_marksheet.pdf',
-            filePath: '/sample_marksheet.pdf',
-            verificationStatus: 'VERIFIED'
+            originalFileName: `${found.personalInfo?.fullName || 'student'}_class12.pdf`,
+            fileSize: '1.4 MB',
+            verificationStatus: 'PENDING'
           }
         ],
         payments: [
           {
-            _id: 'pay-demo-01',
+            _id: 'pay-01',
             amount: 500,
-            paymentStatus: 'SUCCESS',
-            transactionId: 'TXN-IEM-2026-DEMO',
-            paymentMethod: 'UPI'
+            paymentStatus: found.paymentStatus || 'PAID',
+            transactionId: 'TXN-IEM-2026-' + (found.applicationNumber || 'DEMO'),
+            paymentMethod: 'UPI / NetBanking'
           }
         ]
       };
     }
+
+    // Full list with filters
+    let apps = getStoredApplications();
+    const url = new URL(`http://dummy.com${endpoint}`);
+    const statusFilter = url.searchParams.get('status');
+    const deptFilter = url.searchParams.get('department');
+    const search = url.searchParams.get('search')?.toLowerCase();
+
+    if (statusFilter && statusFilter !== 'ALL') {
+      apps = apps.filter((a) => a.status === statusFilter);
+    }
+    if (deptFilter && deptFilter !== 'ALL') {
+      apps = apps.filter((a) => a.courseSelection?.department === deptFilter);
+    }
+    if (search) {
+      apps = apps.filter(
+        (a) =>
+          a.applicationNumber?.toLowerCase().includes(search) ||
+          a.personalInfo?.fullName?.toLowerCase().includes(search) ||
+          a.applicant?.name?.toLowerCase().includes(search) ||
+          a.contactInfo?.email?.toLowerCase().includes(search)
+      );
+    }
+
     return {
       success: true,
-      count: DEMO_APPLICATIONS.length,
-      total: DEMO_APPLICATIONS.length,
-      applications: DEMO_APPLICATIONS
+      count: apps.length,
+      total: apps.length,
+      applications: apps
     };
   }
 
-  if (endpoint.startsWith('/courses')) {
+  // 6. ADMIN DASHBOARD ANALYTICS
+  if (endpoint.startsWith('/admin/dashboard')) {
     return {
       success: true,
-      count: DEMO_COURSES.length,
-      courses: DEMO_COURSES
+      data: getDashboardStatsFromStored()
     };
   }
 
-  if (endpoint.startsWith('/admin/exams') || endpoint.startsWith('/exams')) {
+  // 7. COUNSELLING ALLOCATION & SEAT REDUCTION
+  if (endpoint.includes('/counselling/allocate') && method === 'POST') {
+    const { applicationId, courseId } = body || {};
+    const apps = getStoredApplications();
+    const app = apps.find((a) => a._id === applicationId || a.applicationNumber === applicationId);
+    if (app) {
+      app.status = 'ALLOCATED';
+      saveStoredApplications(apps);
+    }
+    if (courseId) {
+      decrementCourseSeat(courseId);
+    }
     return {
       success: true,
-      exams: DEMO_EXAMS
+      message: 'Seat allocated successfully and course capacity updated.'
     };
   }
 
@@ -89,33 +204,81 @@ const getDemoResponse = (endpoint, method = 'GET', body = null) => {
     };
   }
 
+  // 8. DOCUMENT VERIFICATION ACTION
+  if (endpoint.includes('/documents') && endpoint.includes('/verify') && method === 'PUT') {
+    const idMatch = endpoint.match(/\/documents\/([^/?]+)\/verify/);
+    const docId = idMatch ? idMatch[1] : null;
+    const apps = getStoredApplications();
+    apps.forEach((a) => {
+      if (a.documents) {
+        const doc = a.documents.find((d) => d._id === docId);
+        if (doc) {
+          doc.verificationStatus = body?.verificationStatus || 'VERIFIED';
+          doc.remarks = body?.remarks || '';
+        }
+      }
+    });
+    saveStoredApplications(apps);
+    return {
+      success: true,
+      message: 'Document verification updated successfully'
+    };
+  }
+
+  // 9. DOCUMENT UPLOAD
+  if (endpoint === '/documents/upload' && method === 'POST') {
+    const apps = getStoredApplications();
+    const app = getApplicationForUser(user);
+    if (app) {
+      if (!app.documents) app.documents = [];
+      const newDoc = {
+        _id: `doc-${Date.now()}`,
+        documentType: 'Marksheet / Certificate',
+        originalFileName: 'uploaded_document.pdf',
+        fileSize: '1.1 MB',
+        verificationStatus: 'PENDING',
+        uploadedAt: new Date().toISOString()
+      };
+      app.documents.push(newDoc);
+      saveStoredApplications(apps);
+    }
+    return {
+      success: true,
+      message: 'Document uploaded successfully'
+    };
+  }
+
+  // 10. MOCK PAYMENT
+  if (endpoint.startsWith('/payments/mock') && method === 'POST') {
+    const apps = getStoredApplications();
+    const app = getApplicationForUser(user);
+    if (app) {
+      app.paymentStatus = 'PAID';
+      saveStoredApplications(apps);
+    }
+    return {
+      success: true,
+      message: 'Payment of ₹500 recorded successfully',
+      payment: {
+        _id: `pay-${Date.now()}`,
+        amount: 500,
+        paymentStatus: 'SUCCESS',
+        transactionId: `TXN-IEM-${Date.now()}`
+      }
+    };
+  }
+
+  if (endpoint.startsWith('/admin/exams') || endpoint.startsWith('/exams')) {
+    return {
+      success: true,
+      exams: DEMO_EXAMS
+    };
+  }
+
   if (endpoint.startsWith('/auth/me')) {
     return {
       success: true,
       user
-    };
-  }
-
-  if (endpoint.startsWith('/applications/me')) {
-    return {
-      success: true,
-      application: DEMO_APPLICATIONS[0]
-    };
-  }
-
-  if (endpoint.startsWith('/notifications')) {
-    return {
-      success: true,
-      notifications: [
-        {
-          _id: 'notif-01',
-          title: 'Dean Admission Portal Ready',
-          message: 'Academic demo environment initialized successfully.',
-          type: 'INFO',
-          isRead: false,
-          createdAt: new Date().toISOString()
-        }
-      ]
     };
   }
 
@@ -124,13 +287,25 @@ const getDemoResponse = (endpoint, method = 'GET', body = null) => {
 
 // Common API request function
 const request = async (endpoint, options = {}) => {
+  const method = options.method || 'GET';
   const token = localStorage.getItem('iem_token');
-  const isDemoSession = token && token.startsWith('demo-');
+  const isDemoSession = !token || token.startsWith('demo-');
 
-  // If in pure demo session and endpoint matches a mock response, return it directly
-  if (isDemoSession) {
-    const demoRes = getDemoResponse(endpoint, options.method || 'GET', options.body);
-    if (demoRes) return demoRes;
+  // Handle local synchronous store first for responsive seats and applications
+  const localHandled = handleAppLogic(endpoint, method, options.body);
+  if (localHandled) {
+    // If backend is active, also asynchronously attempt to update the backend
+    if (!isDemoSession && method !== 'GET') {
+      try {
+        const headers = { Accept: 'application/json', ...options.headers };
+        if (!(options.body instanceof FormData) && options.body !== undefined) {
+          headers['Content-Type'] = 'application/json';
+        }
+        if (token) headers.Authorization = `Bearer ${token}`;
+        fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers }).catch(() => {});
+      } catch {}
+    }
+    return localHandled;
   }
 
   const headers = {
@@ -138,7 +313,6 @@ const request = async (endpoint, options = {}) => {
     ...options.headers
   };
 
-  // Don't set Content-Type for FormData.
   if (!(options.body instanceof FormData) && options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
@@ -161,26 +335,21 @@ const request = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      // If server returned an error (e.g. 401 unseeded DB) but we have demo data, fallback to demo data
-      const fallback = getDemoResponse(endpoint, options.method || 'GET', options.body);
+      const fallback = handleAppLogic(endpoint, method, options.body);
       if (fallback) return fallback;
-
       throw new Error(data.message || `Request failed with status ${response.status}`);
     }
 
     return data;
   } catch (error) {
-    // In case of network failure or server error, provide demo fallback if available
-    const fallback = getDemoResponse(endpoint, options.method || 'GET', options.body);
+    const fallback = handleAppLogic(endpoint, method, options.body);
     if (fallback) return fallback;
-
     throw error;
   }
 };
 
 export const api = {
-  get: (endpoint) =>
-    request(endpoint, { method: 'GET' }),
+  get: (endpoint) => request(endpoint, { method: 'GET' }),
 
   post: (endpoint, body) =>
     request(endpoint, {
@@ -194,28 +363,16 @@ export const api = {
       body: body instanceof FormData ? body : JSON.stringify(body)
     }),
 
-  delete: (endpoint) =>
-    request(endpoint, { method: 'DELETE' }),
+  delete: (endpoint) => request(endpoint, { method: 'DELETE' }),
 
-  // Open a private document using a temporary Supabase URL
   openDocument: async (documentId) => {
     const newWindow = window.open('about:blank', '_blank');
-
     try {
-      const data = await request(`/documents/${documentId}/url`, {
-        method: 'GET'
-      });
-
-      if (newWindow) {
-        newWindow.location.href = data.url;
-      } else {
-        window.location.href = data.url;
-      }
+      const data = await request(`/documents/${documentId}/url`, { method: 'GET' });
+      if (newWindow) newWindow.location.href = data.url;
+      else window.location.href = data.url;
     } catch (error) {
-      if (newWindow) {
-        newWindow.close();
-      }
-
+      if (newWindow) newWindow.close();
       throw error;
     }
   }

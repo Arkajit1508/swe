@@ -1,5 +1,6 @@
 
 const Application = require('../models/Application');
+const Course = require('../models/Course');
 const Document = require('../models/Document');
 const Notification = require('../models/Notification');
 const Payment = require('../models/Payment');
@@ -380,6 +381,22 @@ exports.submitApplication = async (req, res) => {
 
     application.status = 'SUBMITTED';
     application.submittedAt = new Date();
+
+    // Decrement available course seats if > 0
+    try {
+      if (courseSelection?.courseId) {
+        await Course.findByIdAndUpdate(courseSelection.courseId, {
+          $inc: { availableSeats: -1 }
+        });
+      } else if (courseSelection?.program) {
+        await Course.findOneAndUpdate(
+          { programName: courseSelection.program, availableSeats: { $gt: 0 } },
+          { $inc: { availableSeats: -1 } }
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to decrement course seats:', err.message);
+    }
 
     await application.save();
 

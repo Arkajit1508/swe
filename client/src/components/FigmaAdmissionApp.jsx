@@ -3,6 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import IEMLogo from './IEMLogo';
 import '../styles/figma-layout.css';
+import {
+  getStoredCourses,
+  saveOrUpdateApplication,
+  submitStudentApplication,
+  decrementCourseSeat
+} from '../services/demoData';
 
 // Fallback course data matching Figma site
 const defaultPrograms = [
@@ -163,7 +169,7 @@ export default function FigmaAdmissionApp() {
             id: c._id,
             name: c.programName,
             department: c.department,
-            seats: c.totalSeats || 120,
+            seats: c.availableSeats !== undefined ? c.availableSeats : c.totalSeats || 120,
             duration: `${c.durationYears || 4} Years`,
             fee: `₹${(c.applicationFee ? c.applicationFee * 240 : 120000).toLocaleString('en-IN')}/yr`,
             eligibility: c.eligibility
@@ -175,7 +181,19 @@ export default function FigmaAdmissionApp() {
         }
       })
       .catch(() => {
-        // use defaultPrograms
+        const stored = getStoredCourses();
+        if (stored && stored.length > 0) {
+          const mapped = stored.map(c => ({
+            id: c._id,
+            name: c.programName,
+            department: c.department,
+            seats: c.availableSeats !== undefined ? c.availableSeats : c.totalSeats || 120,
+            duration: `${c.durationYears || 4} Years`,
+            fee: `₹${(c.applicationFee ? c.applicationFee * 240 : 120000).toLocaleString('en-IN')}/yr`,
+            eligibility: c.eligibility
+          }));
+          setPrograms(mapped);
+        }
       });
   }, []);
 
@@ -245,6 +263,27 @@ export default function FigmaAdmissionApp() {
       const token = localStorage.getItem('iem_token');
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // Save to persistent application store and decrement seat
+      saveOrUpdateApplication({
+        ...payload,
+        status: 'SUBMITTED',
+        paymentStatus: 'PAID'
+      }, {
+        id: 'usr-' + Date.now(),
+        name: fullName,
+        email: studentEmail,
+        phone: form.phone
+      });
+      submitStudentApplication(applicationId, {
+        id: 'usr-' + Date.now(),
+        name: fullName,
+        email: studentEmail,
+        phone: form.phone
+      });
+      if (selectedProgramObj?.name) {
+        decrementCourseSeat(selectedProgramObj.name);
+      }
 
       await fetch('/api/applications/draft', {
         method: 'POST',
