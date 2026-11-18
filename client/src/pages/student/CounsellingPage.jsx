@@ -46,8 +46,8 @@ const CounsellingPage = () => {
               </h2>
             </div>
             <div style={{ textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              <div>Round: <strong>Round {allocation.round}</strong></div>
-              <div>Allotment Date: {new Date(allocation.allocationDate).toLocaleDateString()}</div>
+              <div>Round: <strong>Round {allocation.round || 1}</strong></div>
+              <div>Allotment Date: {allocation.allocationDate && !Number.isNaN(new Date(allocation.allocationDate).getTime()) ? new Date(allocation.allocationDate).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}</div>
             </div>
           </div>
 
@@ -63,10 +63,10 @@ const CounsellingPage = () => {
               Allocated Academic Program:
             </h3>
             <div style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
-              {allocation.courseId?.programName}
+              {allocation.courseId?.programName || allocation.program || 'B.Tech Academic Program'}
             </div>
             <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-              Department of {allocation.courseId?.department} | Duration: {allocation.courseId?.durationYears} Years
+              Department of {allocation.courseId?.department || allocation.department || 'Engineering'} | Duration: {allocation.courseId?.durationYears || 4} Years
             </div>
           </div>
 

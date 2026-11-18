@@ -20,7 +20,7 @@ import {
   submitStudentApplication,
   getDashboardStatsFromStored,
   generateDocumentPreview
-} from './demoData';
+} from './demoData.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://iem-admission-api.onrender.com/api';
 
@@ -186,15 +186,24 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
 
     if (statusFilter && statusFilter !== 'ALL') {
       if (statusFilter === 'APPROVED') {
+        const allocations = getStoredAllocations();
+        const allocatedAppIds = new Set(
+          allocations.map((al) => al.applicationId?._id || al.applicationNumber || al.applicationId)
+        );
+
         apps = apps.filter(
           (a) =>
-            a.status === 'APPROVED' ||
-            a.status === 'DOCUMENT_VERIFIED' ||
-            (a.documents &&
-              a.documents.length > 0 &&
-              a.documents.every((d) => String(d.verificationStatus).toUpperCase() === 'VERIFIED') &&
-              a.status !== 'ALLOCATED' &&
-              a.status !== 'REJECTED')
+            !allocatedAppIds.has(a._id) &&
+            !allocatedAppIds.has(a.applicationNumber) &&
+            a.status !== 'ALLOCATED' &&
+            a.status !== 'REJECTED' &&
+            (
+              a.status === 'APPROVED' ||
+              a.status === 'DOCUMENT_VERIFIED' ||
+              (a.documents &&
+                a.documents.length > 0 &&
+                a.documents.every((d) => String(d.verificationStatus).toUpperCase() === 'VERIFIED'))
+            )
         );
       } else {
         apps = apps.filter((a) => a.status === statusFilter);
@@ -358,7 +367,24 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
   // 9. DOCUMENT UPLOAD & DELETE
   if (endpoint === '/documents/upload' && method === 'POST') {
     const apps = getStoredApplications();
-    const app = getApplicationForUser(user);
+    const targetAppId = parsedBody?.applicationId || (body instanceof FormData ? body.get('applicationId') : null);
+    let app = null;
+    if (targetAppId) {
+      app = apps.find((a) => a._id === targetAppId || a.applicationNumber === targetAppId);
+    }
+    if (!app && user) {
+      const uEmail = user.email?.toLowerCase();
+      const uName = user.name?.toLowerCase();
+      app = apps.find((a) =>
+        (a.applicant && (a.applicant._id === user.id || (a.applicant.email && a.applicant.email.toLowerCase() === uEmail))) ||
+        (a.personalInfo && a.personalInfo.fullName && a.personalInfo.fullName.toLowerCase() === uName) ||
+        (a.contactInfo && a.contactInfo.email && a.contactInfo.email.toLowerCase() === uEmail)
+      );
+    }
+    if (!app) {
+      app = apps[0];
+    }
+
     if (app) {
       if (!app.documents) app.documents = [];
 
@@ -376,14 +402,16 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
         dataUrl = body.get('dataUrl') || dataUrl;
       }
 
+      const nowIso = new Date().toISOString();
       const newDoc = {
-        _id: `doc-${Date.now()}`,
+        _id: `doc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         documentType: docType || '10th_Marksheet',
         originalFileName: fileName || 'uploaded_document.pdf',
         fileSize: fileSize || '1.2 MB',
         verificationStatus: 'PENDING',
         dataUrl: dataUrl || null,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: nowIso,
+        createdAt: nowIso
       };
 
       const existingIdx = app.documents.findIndex((d) => d.documentType === newDoc.documentType);
@@ -409,11 +437,12 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
   if (endpoint.startsWith('/documents/') && method === 'DELETE') {
     const docId = endpoint.split('/')[2];
     const apps = getStoredApplications();
-    const app = getApplicationForUser(user);
-    if (app && app.documents) {
-      app.documents = app.documents.filter((d) => d._id !== docId);
-      saveStoredApplications(apps);
-    }
+    apps.forEach((a) => {
+      if (a.documents) {
+        a.documents = a.documents.filter((d) => d._id !== docId);
+      }
+    });
+    saveStoredApplications(apps);
     return {
       success: true,
       message: 'Document deleted successfully'
@@ -423,42 +452,118 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
   // 10. MOCK PAYMENT & PAYMENT STATUS
   if (endpoint.startsWith('/payments/mock') && method === 'POST') {
     const apps = getStoredApplications();
-    const app = getApplicationForUser(user);
+    const targetAppId = parsedBody?.applicationId;
+    let app = null;
+    if (targetAppId) {
+      app = apps.find((a) => a._id === targetAppId || a.applicationNumber === targetAppId);
+    }
+    if (!app && user) {
+      const uEmail = user.email?.toLowerCase();
+      const uName = user.name?.toLowerCase();
+      app = apps.find((a) =>
+        (a.applicant && (a.applicant._id === user.id || (a.applicant.email && a.applicant.email.toLowerCase() === uEmail))) ||
+        (a.personalInfo && a.personalInfo.fullName && a.personalInfo.fullName.toLowerCase() === uName) ||
+        (a.contactInfo && a.contactInfo.email && a.contactInfo.email.toLowerCase() === uEmail)
+      );
+    }
+    if (!app) app = apps[0];
+
+    const txnId = `TXN-IEM-${Date.now()}`;
+    const nowIso = new Date().toISOString();
+    const paymentRecord = {
+      _id: `pay-${Date.now()}`,
+      amount: 500,
+      paymentStatus: 'PAID',
+      transactionId: txnId,
+      paymentMethod: parsedBody?.paymentMethod || 'UPI',
+      paymentDate: nowIso,
+      createdAt: nowIso
+    };
+
     if (app) {
       app.paymentStatus = 'PAID';
+      app.paymentDetails = paymentRecord;
       saveStoredApplications(apps);
     }
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('iem_payments', JSON.stringify(paymentRecord));
+      } catch {}
+    }
+
     return {
       success: true,
       message: 'Payment of ₹500 recorded successfully',
-      payment: {
-        _id: `pay-${Date.now()}`,
-        amount: 500,
-        paymentStatus: 'SUCCESS',
-        transactionId: `TXN-IEM-${Date.now()}`
-      }
+      payment: paymentRecord
     };
   }
 
   if (endpoint.startsWith('/payments') && method === 'GET') {
-    const app = getApplicationForUser(user);
+    const apps = getStoredApplications();
+    let app = null;
+    const urlMatch = endpoint.match(/\/payments\/([^/?]+)/);
+    const targetAppId = urlMatch ? urlMatch[1] : null;
+    if (targetAppId && targetAppId !== 'undefined') {
+      app = apps.find((a) => a._id === targetAppId || a.applicationNumber === targetAppId);
+    }
+    if (!app && user) {
+      const uEmail = user.email?.toLowerCase();
+      const uName = user.name?.toLowerCase();
+      app = apps.find((a) =>
+        (a.applicant && (a.applicant._id === user.id || (a.applicant.email && a.applicant.email.toLowerCase() === uEmail))) ||
+        (a.personalInfo && a.personalInfo.fullName && a.personalInfo.fullName.toLowerCase() === uName) ||
+        (a.contactInfo && a.contactInfo.email && a.contactInfo.email.toLowerCase() === uEmail)
+      );
+    }
+    if (!app) app = apps[0];
+
+    let storedPay = app?.paymentDetails;
+    if (!storedPay && typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('iem_payments');
+        if (raw) storedPay = JSON.parse(raw);
+      } catch {}
+    }
+
+    const isPaid = app?.paymentStatus === 'PAID' || storedPay?.paymentStatus === 'PAID';
+    const finalRecord = {
+      _id: storedPay?._id || 'pay-01',
+      amount: storedPay?.amount || 500,
+      paymentStatus: isPaid ? 'PAID' : 'PENDING',
+      transactionId: isPaid ? (storedPay?.transactionId || 'TXN-IEM-2026-ONLINE') : '',
+      paymentMethod: storedPay?.paymentMethod || 'UPI',
+      paymentDate: isPaid ? (storedPay?.paymentDate || app?.submittedAt || new Date().toISOString()) : null
+    };
+
     return {
       success: true,
-      payment: {
-        _id: 'pay-01',
-        amount: 500,
-        paymentStatus: app?.paymentStatus || 'PENDING',
-        transactionId: app?.paymentStatus === 'PAID' ? 'TXN-IEM-2026-ONLINE' : '',
-        paymentMethod: 'UPI'
-      }
+      payment: finalRecord
     };
   }
 
   if (endpoint.startsWith('/documents/application') && method === 'GET') {
-    const app = getApplicationForUser(user);
+    const urlMatch = endpoint.match(/\/documents\/application\/([^/?]+)/);
+    const targetAppId = urlMatch ? urlMatch[1] : null;
+    const apps = getStoredApplications();
+    let app = null;
+    if (targetAppId && targetAppId !== 'undefined' && targetAppId !== 'application') {
+      app = apps.find((a) => a._id === targetAppId || a.applicationNumber === targetAppId);
+    }
+    if (!app && user) {
+      const uEmail = user.email?.toLowerCase();
+      const uName = user.name?.toLowerCase();
+      app = apps.find((a) =>
+        (a.applicant && (a.applicant._id === user.id || (a.applicant.email && a.applicant.email.toLowerCase() === uEmail))) ||
+        (a.personalInfo && a.personalInfo.fullName && a.personalInfo.fullName.toLowerCase() === uName) ||
+        (a.contactInfo && a.contactInfo.email && a.contactInfo.email.toLowerCase() === uEmail)
+      );
+    }
+    if (!app) app = apps[0];
+
     return {
       success: true,
-      documents: app?.documents || []
+      documents: (app?.documents && app.documents.length > 0) ? app.documents : []
     };
   }
 
@@ -526,21 +631,47 @@ const handleAppLogic = (endpoint, method = 'GET', body = null) => {
     const allocations = getStoredAllocations();
     const userAlloc = allocations.find(
       (al) =>
-        (app && (al.applicationId?._id === app._id || al.applicationId?.applicationNumber === app.applicationNumber)) ||
-        (user && (al.applicantId?._id === user._id || al.applicantId?.email === user.email))
+        (app && (al.applicationId?._id === app._id || al.applicationNumber === app.applicationNumber || al.applicationId?.applicationNumber === app.applicationNumber)) ||
+        (user && (al.candidateName === user.name || al.applicantId?._id === user.id || al.applicantId?.email === user.email))
     );
+
+    const isAllocated = (userAlloc && (userAlloc.seatStatus === 'PROVISIONALLY_ALLOCATED' || userAlloc.seatStatus === 'CONFIRMED')) || (app && app.status === 'ALLOCATED');
+
+    if (!isAllocated) {
+      return {
+        success: true,
+        allocation: null
+      };
+    }
+
+    const finalAlloc = userAlloc || {
+      _id: 'alloc-' + (app?._id || 'me'),
+      applicationId: app,
+      candidateName: app?.personalInfo?.fullName || user?.name || 'Applicant',
+      applicationNumber: app?.applicationNumber || 'IEM-2026-DEMO',
+      courseId: {
+        programName: app?.courseSelection?.program || 'B.Tech Computer Science & Engineering',
+        department: app?.courseSelection?.department || 'Computer Science & Engineering',
+        durationYears: 4
+      },
+      program: app?.courseSelection?.program || 'B.Tech Computer Science & Engineering',
+      department: app?.courseSelection?.department || 'Computer Science & Engineering',
+      seatStatus: 'PROVISIONALLY_ALLOCATED',
+      round: 1,
+      allocationDate: new Date().toISOString(),
+      remarks: 'Merit Quota Allocation'
+    };
 
     return {
       success: true,
-      allocation: userAlloc || {
-        _id: 'alloc-me',
-        applicationId: app,
+      allocation: {
+        ...finalAlloc,
+        allocationDate: finalAlloc.allocationDate || new Date().toISOString(),
         courseId: {
-          programName: app?.courseSelection?.program || 'B.Tech Computer Science & Engineering',
-          department: app?.courseSelection?.department || 'Computer Science & Engineering'
-        },
-        seatStatus: 'PROVISIONALLY_ALLOCATED',
-        round: 1
+          programName: finalAlloc.courseId?.programName || finalAlloc.program || 'B.Tech Program',
+          department: finalAlloc.courseId?.department || finalAlloc.department || 'Engineering',
+          durationYears: finalAlloc.courseId?.durationYears || 4
+        }
       }
     };
   }

@@ -7,13 +7,13 @@ import Modal from '../../components/Modal';
 
 const allowedNextTransitions = {
   DRAFT: ['SUBMITTED'],
-  SUBMITTED: ['UNDER_REVIEW'],
-  UNDER_REVIEW: ['DOCUMENT_VERIFICATION', 'REJECTED'],
+  SUBMITTED: ['APPROVED', 'UNDER_REVIEW', 'DOCUMENT_VERIFICATION', 'REJECTED'],
+  UNDER_REVIEW: ['APPROVED', 'DOCUMENT_VERIFICATION', 'REJECTED'],
   DOCUMENT_VERIFICATION: ['APPROVED', 'REJECTED'],
-  APPROVED: ['COUNSELLING'],
+  APPROVED: ['COUNSELLING', 'ALLOCATED'],
   COUNSELLING: ['ALLOCATED', 'REJECTED'],
   ALLOCATED: [],
-  REJECTED: ['UNDER_REVIEW']
+  REJECTED: ['UNDER_REVIEW', 'SUBMITTED']
 };
 
 const ApplicantDetail = () => {
@@ -108,18 +108,20 @@ const ApplicantDetail = () => {
       }
 
       if (res && res.success) {
+        // Calculate updated docs and whether all are verified
+        const currentDocs = data?.documents || [];
+        const updatedDocs = currentDocs.map((d) =>
+          d._id === docId ? { ...d, verificationStatus, remarks: remark } : d
+        );
+        const allDocsVerified =
+          updatedDocs.length > 0 &&
+          updatedDocs.every(
+            (d) => String(d.verificationStatus || '').trim().toUpperCase() === 'VERIFIED'
+          );
+
         // Instant local optimistic update for immediate button toggling
-        let allDocsVerified = false;
         setData((prev) => {
           if (!prev) return prev;
-          const updatedDocs = (prev.documents || []).map((d) =>
-            d._id === docId ? { ...d, verificationStatus, remarks: remark } : d
-          );
-          allDocsVerified =
-            updatedDocs.length > 0 &&
-            updatedDocs.every(
-              (d) => String(d.verificationStatus).toUpperCase() === 'VERIFIED'
-            );
           return {
             ...prev,
             documents: updatedDocs,
@@ -131,13 +133,7 @@ const ApplicantDetail = () => {
         });
 
         if (verificationStatus === 'VERIFIED') {
-          // If all documents verified, advance application status to APPROVED
-          const currentDocs = data?.documents || [];
-          const otherDocsVerified = currentDocs
-            .filter((d) => d._id !== docId)
-            .every((d) => String(d.verificationStatus).toUpperCase() === 'VERIFIED');
-
-          if (otherDocsVerified) {
+          if (allDocsVerified) {
             try {
               await api.put(`/admin/applications/${id}/status`, { status: 'APPROVED' });
             } catch {}
@@ -624,7 +620,7 @@ const ApplicantDetail = () => {
                         display: 'flex',
                         gap: '0.5rem'
                       }}>
-                        {String(doc.verificationStatus).toUpperCase() !== 'VERIFIED' && (
+                        {String(doc.verificationStatus || '').trim().toUpperCase() !== 'VERIFIED' && (
                           <button
                             type="button"
                             onClick={() =>
@@ -640,7 +636,7 @@ const ApplicantDetail = () => {
                           </button>
                         )}
 
-                        {String(doc.verificationStatus).toUpperCase() !== 'REJECTED' && (
+                        {String(doc.verificationStatus || '').trim().toUpperCase() !== 'REJECTED' && (
                           <button
                             type="button"
                             onClick={() =>

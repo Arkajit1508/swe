@@ -47,13 +47,15 @@ const PaymentPage = () => {
         paymentMethod: selectedMethod
       });
 
-      if (res.success) {
+      if (res.success && res.payment) {
+        setPayment(res.payment);
+        setApplication((prev) => (prev ? { ...prev, paymentStatus: 'PAID', paymentDetails: res.payment } : prev));
         setMessage({
           type: 'success',
           text: `Payment of ₹500 was successfully processed! Txn ID: ${res.payment.transactionId}`
         });
         setIsModalOpen(false);
-        fetchPaymentStatus();
+        await fetchPaymentStatus();
       }
     } catch (err) {
       setMessage({ type: 'danger', text: err.message || 'Payment simulation failed' });
@@ -66,7 +68,13 @@ const PaymentPage = () => {
     return <div style={{ textAlign: 'center', padding: '3rem' }}>Loading fee details...</div>;
   }
 
-  const isPaid = application?.paymentStatus === 'PAID';
+  const isPaid = application?.paymentStatus === 'PAID' || payment?.paymentStatus === 'PAID';
+  const activeReceipt = payment || (isPaid ? {
+    transactionId: application?.paymentDetails?.transactionId || `TXN-IEM-${application?.applicationNumber || 'ONLINE'}`,
+    paymentDate: application?.paymentDetails?.paymentDate || application?.submittedAt || new Date().toISOString(),
+    paymentMethod: application?.paymentDetails?.paymentMethod || 'UPI (Online Gateway)',
+    amount: 500
+  } : null);
 
   return (
     <div>
@@ -134,28 +142,28 @@ const PaymentPage = () => {
         {/* Transaction Receipt Details */}
         <div className="card">
           <h3 className="section-title">Transaction Receipt</h3>
-          {isPaid && payment ? (
+          {isPaid && activeReceipt ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', fontSize: '0.9rem' }}>
               <div>
                 <span style={{ color: 'var(--text-muted)' }}>Transaction Reference:</span>
                 <div style={{ fontWeight: '700', color: 'var(--primary)', fontFamily: 'monospace', fontSize: '1rem', marginTop: '0.15rem' }}>
-                  {payment.transactionId}
+                  {activeReceipt.transactionId}
                 </div>
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted)' }}>Payment Date & Time:</span>
                 <div style={{ fontWeight: '600' }}>
-                  {new Date(payment.paymentDate).toLocaleString()}
+                  {new Date(activeReceipt.paymentDate || Date.now()).toLocaleString()}
                 </div>
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted)' }}>Payment Mode:</span>
-                <div style={{ fontWeight: '600' }}>{payment.paymentMethod}</div>
+                <div style={{ fontWeight: '600' }}>{activeReceipt.paymentMethod}</div>
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted)' }}>Amount Paid:</span>
                 <div style={{ fontWeight: '700', color: 'var(--success)', fontSize: '1.1rem' }}>
-                  ₹{payment.amount}.00
+                  ₹{activeReceipt.amount}.00
                 </div>
               </div>
               <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>

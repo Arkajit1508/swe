@@ -473,8 +473,7 @@ const ApplicationForm = () => {
           { id: 1, title: '1. Personal Info' },
           { id: 2, title: '2. Contact Details' },
           { id: 3, title: '3. Academic Records' },
-          { id: 4, title: '4. Program Choice' },
-          { id: 5, title: '5. Entrance Exam' }
+          { id: 4, title: '4. Program Choice' }
         ].map((sec) => (
           <button
             key={sec.id}
@@ -1185,83 +1184,6 @@ const ApplicationForm = () => {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
-            <button type="button" onClick={() => setActiveSection(3)} className="btn btn-secondary btn-sm">
-              ← Back: Academic Records
-            </button>
-            <button type="button" onClick={() => handleGoToSection(5)} className="btn btn-primary btn-sm">
-              Next: Entrance Exam →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* SECTION 5: Entrance Exam Info & Final Submit */}
-      {activeSection === 5 && (
-        <div className="card">
-          <h3 className="section-title">Section 5: Entrance Examination Details</h3>
-          <div className="form-grid-3">
-            <div className="form-group">
-              <label className="form-label">Exam Name</label>
-              <select
-                className="form-control"
-                value={examInfo.examName}
-                onChange={(e) => setExamInfo({ ...examInfo, examName: e.target.value })}
-                disabled={isReadOnly}
-              >
-                <option value="IEMJEE">IEMJEE (IEM Joint Entrance)</option>
-                <option value="WBJEE">WBJEE (West Bengal JEE)</option>
-                <option value="JEE Main">JEE Main (National)</option>
-                <option value="JECA">JECA (For MCA)</option>
-                <option value="CAT/MAT">CAT / MAT (For MBA)</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Roll Number / App No</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="e.g. IEM-2026-908"
-                value={examInfo.rollNumber}
-                onChange={(e) => setExamInfo({ ...examInfo, rollNumber: e.target.value })}
-                disabled={isReadOnly}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Rank / Score (Integer)</label>
-              <input
-                type="number"
-                step="1"
-                min="1"
-                max="500000"
-                className="form-control"
-                placeholder="e.g. 1420 (Positive integer >= 1)"
-                style={{
-                  borderColor: examInfo.rankOrScore !== undefined && examInfo.rankOrScore !== '' && Number(examInfo.rankOrScore) < 1 ? '#ef4444' : undefined
-                }}
-                value={examInfo.rankOrScore ?? ''}
-                onKeyDown={(e) => {
-                  if (['.', 'e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
-                }}
-                onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g, '').slice(0, 7);
-                  setExamInfo({ ...examInfo, rankOrScore: digits ? parseInt(digits, 10) : '' });
-                }}
-                disabled={isReadOnly}
-              />
-              {examInfo.rankOrScore !== undefined && examInfo.rankOrScore !== '' && Number(examInfo.rankOrScore) < 1 && (
-                <small style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block', fontWeight: 500 }}>
-                  ⚠️ Rank must be a positive integer (minimum: 1)
-                </small>
-              )}
-              <small style={{ color: '#64748b', fontSize: '0.72rem', marginTop: '0.2rem', display: 'block' }}>
-                Positive integer rank (no negative values)
-              </small>
-            </div>
-          </div>
-
           <div
             style={{
               marginTop: '1.5rem',
@@ -1283,8 +1205,8 @@ const ApplicationForm = () => {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <button type="button" onClick={() => setActiveSection(4)} className="btn btn-secondary btn-sm">
-              ← Back: Program Choice
+            <button type="button" onClick={() => setActiveSection(3)} className="btn btn-secondary btn-sm">
+              ← Back: Academic Records
             </button>
 
             {!isReadOnly && (

@@ -457,6 +457,8 @@ export const DEMO_STUDENT_USER = {
 };
 
 // Course Seats State Management
+let memoryCourses = null;
+
 export const getStoredCourses = () => {
   let courses = [...INITIAL_COURSES];
   try {
@@ -466,42 +468,51 @@ export const getStoredCourses = () => {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) courses = parsed;
       }
+    } else if (memoryCourses) {
+      courses = [...memoryCourses];
     }
   } catch (e) {
     console.warn('Error reading stored courses:', e);
   }
 
   // Count confirmed allocations to ensure available seats reflect real-time count
-  let allocations = [];
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const rawAlloc = localStorage.getItem('iem_allocations');
-      if (rawAlloc) {
-        const parsedAlloc = JSON.parse(rawAlloc);
-        if (Array.isArray(parsedAlloc)) allocations = parsedAlloc;
-      }
-    }
-  } catch {}
+  const allocations = getStoredAllocations();
 
-  // Adjust baseline seats if not explicitly stored
+  // Base available seat capacities before counselling allocations
+  const BASE_CAPACITIES = {
+    'B.Tech Computer Science & Engineering': 140,
+    'B.Tech Information Technology': 99,
+    'B.Tech Electronics & Communication Engineering': 85,
+    'B.Tech Computer Science & Business Systems': 45,
+    'Bachelor of Computer Applications (BCA)': 90,
+    'Master of Computer Applications (MCA)': 35,
+    'Master of Business Administration (MBA)': 70
+  };
+
+  // Adjust baseline seats dynamically based on allocations
   courses = courses.map((c) => {
     // Count how many allocated for this course
     const allocCount = allocations.filter((al) => {
       const prog = al.courseId?.programName || al.program || al.allocatedCourse?.programName;
-      return prog && (prog.toLowerCase() === c.programName.toLowerCase() || c.programName.toLowerCase().includes(prog.toLowerCase()));
+      return prog && (
+        prog.toLowerCase() === c.programName.toLowerCase() ||
+        c.programName.toLowerCase().includes(prog.toLowerCase()) ||
+        prog.toLowerCase().includes(c.programName.toLowerCase())
+      );
     }).length;
 
-    const initMatch = INITIAL_COURSES.find((ic) => ic._id === c._id || ic.programName === c.programName);
-    const baseAvailable = initMatch ? initMatch.availableSeats : (c.availableSeats || c.totalSeats);
+    const baseAvailable = BASE_CAPACITIES[c.programName] !== undefined 
+      ? BASE_CAPACITIES[c.programName] 
+      : (c.totalSeats || 60);
+
     const calculatedAvail = Math.max(0, baseAvailable - allocCount);
-    
-    // Use the lower of existing availableSeats and calculatedAvail
-    const currentAvail = c.availableSeats !== undefined ? Math.min(c.availableSeats, calculatedAvail) : calculatedAvail;
-    return { ...c, availableSeats: currentAvail };
+    return { ...c, availableSeats: calculatedAvail };
   });
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('iem_courses', JSON.stringify(courses));
+  } else {
+    memoryCourses = courses;
   }
   return courses;
 };
@@ -510,6 +521,7 @@ export const saveStoredCourses = (courses) => {
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('iem_courses', JSON.stringify(courses));
   }
+  memoryCourses = courses;
   return courses;
 };
 
@@ -1022,10 +1034,23 @@ export const saveOrUpdateApplication = (appData, user) => {
 
 export const submitStudentApplication = (appId, user) => {
   const apps = getStoredApplications();
-  let app = apps.find((a) => a._id === appId || a.applicationNumber === appId);
+  let app = null;
+  if (appId) {
+    app = apps.find((a) => a._id === appId || a.applicationNumber === appId);
+  }
 
   if (!app && user) {
-    app = getApplicationForUser(user);
+    const uEmail = user.email?.toLowerCase();
+    const uName = user.name?.toLowerCase();
+    app = apps.find((a) =>
+      (a.applicant && (a.applicant._id === user.id || (a.applicant.email && a.applicant.email.toLowerCase() === uEmail))) ||
+      (a.personalInfo && a.personalInfo.fullName && a.personalInfo.fullName.toLowerCase() === uName) ||
+      (a.contactInfo && a.contactInfo.email && a.contactInfo.email.toLowerCase() === uEmail)
+    );
+  }
+
+  if (!app) {
+    app = apps[0];
   }
 
   if (app) {
@@ -1200,6 +1225,8 @@ export const DEMO_ALLOCATIONS = [
   }
 ];
 
+let memoryAllocations = null;
+
 export const getStoredAllocations = () => {
   let allocations = [];
   try {
@@ -1209,6 +1236,8 @@ export const getStoredAllocations = () => {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) allocations = parsed;
       }
+    } else if (memoryAllocations) {
+      allocations = [...memoryAllocations];
     }
   } catch (e) {
     console.warn('Error reading stored allocations:', e);
@@ -1269,6 +1298,8 @@ export const getStoredAllocations = () => {
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('iem_allocations', JSON.stringify(allocations));
+  } else {
+    memoryAllocations = allocations;
   }
   return allocations;
 };
@@ -1277,6 +1308,7 @@ export const saveStoredAllocations = (allocations) => {
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('iem_allocations', JSON.stringify(allocations));
   }
+  memoryAllocations = allocations;
   return allocations;
 };
 
